@@ -19,6 +19,9 @@ dynamic = ["version"]
 
 [project.scripts]
 
+[project.entry-points.pytest11]
+snaptol = "snaptol.plugin"
+
 [project.optional-dependencies]
 tests = [
     "pytest>=8.4.1",
