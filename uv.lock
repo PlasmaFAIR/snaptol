@@ -175,6 +175,7 @@ name = "snaptol"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
+    { name = "pytest" },
 ]
 
 [package.optional-dependencies]
@@ -188,6 +189,7 @@ tests = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.0.0" },
+    { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest", marker = "extra == 'tests'", specifier = ">=8.4.1" },
     { name = "ruff", marker = "extra == 'lint'", specifier = ">=0.12.0" },
 ]
