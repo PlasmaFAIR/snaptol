@@ -1,16 +1,16 @@
 def test_basic(snapshot):
-    RESULT = 123  # TODO: delete.
+    RESULT = 135  # TODO: delete.
 
-    assert RESULT == snapshot  # noqa: SIM300
+    assert snapshot == RESULT
 
 
 def test_tolerance(snapshot):
-    RESULT = 123  # TODO: delete.
+    RESULT = 159  # TODO: delete.
 
-    assert RESULT == snapshot(rtol=1e-02, atol=1e-04)  # noqa: SIM300
+    assert snapshot(rtol=1e-02, atol=1e-04) == RESULT
 
 
 def test_match(snapshot):
-    RESULT = 123  # TODO: delete.
+    RESULT = 321  # TODO: delete.
 
     assert snapshot.match(RESULT, rtol=1e-02, atol=1e-04)
