@@ -5,25 +5,19 @@ from typing import Any
 from numpy import ndarray
 
 
-def snapshot_dir(test_file: Path) -> Path:
-    return test_file.parent / "__snapshots__"
-
-
 def snapshot_filename(test_name: str, test_file: Path) -> Path:
-    return snapshot_dir(test_file) / f"{test_file.stem}.{test_name}.json"
+    return test_file.parent / "__snapshots__" / f"{test_file.stem}.{test_name}.json"
 
 
-def write_snapshot(test_name: str, test_file: Path, value: Any):
+def write_snapshot(snapshot_file: Path, value: Any):
     jsoned = dumps(value, indent=2, default=_json_fallback)
 
-    path = snapshot_filename(test_name, test_file)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(jsoned, encoding="utf-8")
+    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_file.write_text(jsoned, encoding="utf-8")
 
 
-def read_snapshot(test_name: str, test_file: Path) -> Any:
-    path = snapshot_filename(test_name, test_file)
-    return loads(path.read_text(encoding="utf-8"))
+def read_snapshot(snapshot_file: Path) -> Any:
+    return loads(snapshot_file.read_text(encoding="utf-8"))
 
 
 def _json_fallback(value: Any) -> Any:
