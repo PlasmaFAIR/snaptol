@@ -21,6 +21,10 @@ def pytest_sessionfinish(session):
     if not session.config.getoption("--snapshot-update"):
         return
 
+    # Skip cleanup if a -k filter was passed.
+    if session.config.getoption("keyword"):
+        return
+
     tracker: SnapshotTracker = session.config.snaptol_tracker
 
     for snapshot_dir in tracker.snapshot_dirs:
