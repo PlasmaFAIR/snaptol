@@ -1,0 +1,43 @@
+from numpy import array
+
+from snaptol import compare_intelligent
+
+
+def test_compare():
+    assert compare_intelligent(1, 1)
+    assert compare_intelligent(1.0, 1.0)
+    assert compare_intelligent(1e-9, 2e-9, rtol=0, atol=1e-8)
+    assert compare_intelligent(1e6, 1.000001e6, rtol=1e-5, atol=0)
+    assert compare_intelligent(1, 1.0)
+    assert compare_intelligent(1.0, 1)
+    assert compare_intelligent("string", "string")
+    assert compare_intelligent(b"string", b"string")
+    assert compare_intelligent(bytearray(b"string"), bytearray(b"string"))
+    assert compare_intelligent(memoryview(b"string"), memoryview(b"string"))
+    assert compare_intelligent(True, True)
+    assert compare_intelligent(False, False)
+    assert compare_intelligent(None, None)
+    assert compare_intelligent([1, 2, 3], [1, 2, 3])
+    assert compare_intelligent({"a": 1, "b": 2}, {"a": 1, "b": 2})
+    assert compare_intelligent(map(str, range(10)), map(str, range(10)))
+    assert compare_intelligent(set(range(10)), set(range(10)))
+    assert compare_intelligent(frozenset(range(10)), frozenset(range(10)))
+    assert compare_intelligent(array([1, 2, 3]), array([1, 2, 3]))
+    assert compare_intelligent(array([1, 2, 3]), array([1, 2, 3], dtype=float))
+
+    assert not compare_intelligent(1, 2)
+    assert not compare_intelligent(1e-9, 5e-8, rtol=0, atol=1e-9)
+    assert not compare_intelligent(1e6, 1.1e6, rtol=1e-3, atol=0)
+    assert not compare_intelligent("string1", "string2")
+    assert not compare_intelligent(b"string1", b"string2")
+    assert not compare_intelligent(bytearray(b"string1"), bytearray(b"string2"))
+    assert not compare_intelligent(memoryview(b"string1"), memoryview(b"string2"))
+    assert not compare_intelligent(True, False)
+    assert not compare_intelligent([1, 2, 3], [3, 2, 1])
+    assert not compare_intelligent({"a": 1, "b": 2}, {"c": 1, "d": 2})
+    assert not compare_intelligent({"a": 1, "b": 2}, {"a": 3, "b": 4})
+    assert not compare_intelligent(map(str, range(10)), map(str, range(11)))
+    assert not compare_intelligent(set(range(10)), set(range(11)))
+    assert not compare_intelligent(frozenset(range(10)), frozenset(range(11)))
+    assert not compare_intelligent(array([1, 2, 3]), array([3, 2, 1]))
+    assert not compare_intelligent(array([1, 2, 3]), array([3, 2, 1], dtype=float))

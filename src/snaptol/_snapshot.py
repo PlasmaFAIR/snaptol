@@ -8,12 +8,8 @@ from typing import Any, TypeVar
 
 import numpy.testing as npt
 
-from ._compare import compare_intelligent
+from ._compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
 from ._io import read_snapshot, snapshot_filename, write_snapshot
-
-DEFAULT_RTOL = 1e-05
-DEFAULT_ATOL = 1e-08
-
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -24,6 +20,9 @@ def auto_update(method: F) -> F:
         if self.snapshot_update:
             write_snapshot(self.snapshot_file, value)
             return True
+
+        if not self.snapshot_found:
+            raise AssertionError("Snapshot not found.")
 
         return method(value, self.expected, *args, **kwargs)
 
@@ -36,6 +35,7 @@ class Snapshot:
     test_file: Path
     snapshot_file: Path
     snapshot_update: bool
+    snapshot_found: bool = False
     rtol: float = DEFAULT_RTOL
     atol: float = DEFAULT_ATOL
     equal_nan: bool = False
@@ -57,12 +57,20 @@ class Snapshot:
 
     def __post_init__(self) -> None:
         if not self.snapshot_update:
-            self.expected = read_snapshot(self.snapshot_file)
+            try:
+                self.expected = read_snapshot(self.snapshot_file)
+                self.snapshot_found = True
+            except FileNotFoundError:
+                self.expected = None
+                self.snapshot_found = False
 
     def __eq__(self, value: Any) -> bool:
         if self.snapshot_update:
             write_snapshot(self.snapshot_file, value)
             return True
+
+        if not self.snapshot_found:
+            return False
 
         return compare_intelligent(
             self.expected, value, self.rtol, self.atol, self.equal_nan
