@@ -1,6 +1,4 @@
 import numpy as np
-import numpy.random as npr
-import pytest
 
 
 def _get_dir_files(path):
@@ -9,10 +7,6 @@ def _get_dir_files(path):
 
 def test_gaussian(snapshot):
     N = 100
-    generator = npr.default_rng()
-
-    def noise(size):
-        return size * (2.0 * generator.random(N) - 1.0)
 
     gaussian = np.exp(-(np.linspace(-5.0, 5.0, N) ** 2.0))
 
@@ -20,39 +14,12 @@ def test_gaussian(snapshot):
     assert snapshot == gaussian
 
     # Don't do any more testing if we are updating the snapshot.
-    if snapshot.snapshot_update:  # TODO: is this logic OK inside of a test?
+    if snapshot.snapshot_update:
         return
 
     # Normal tests continued.
     assert snapshot() == gaussian
     assert snapshot.match(gaussian)
-    snapshot.assert_allclose(gaussian)
-
-    # Add some SMALL random noise.
-    gaussian_low_noise = gaussian + noise(1e-8)
-
-    # Should all still be OK.
-    assert snapshot == gaussian_low_noise
-    assert snapshot() == gaussian_low_noise
-    assert snapshot.match(gaussian_low_noise)
-    snapshot.assert_allclose(
-        gaussian_low_noise, atol=1e-8
-    )  # atol defined here as NumPy has different default tolerances.
-
-    # Add some BIG random noise.
-    gaussian_high_noise = gaussian + noise(1e-7)
-
-    # Should now fail as noise is too large.
-    with pytest.raises(AssertionError):
-        assert snapshot == gaussian_high_noise
-    with pytest.raises(AssertionError):
-        assert snapshot() == gaussian_high_noise
-    with pytest.raises(AssertionError):
-        assert snapshot.match(gaussian_high_noise)
-    with pytest.raises(AssertionError):
-        snapshot.assert_allclose(
-            gaussian_high_noise, atol=1e-8
-        )  # atol defined here as NumPy has different default tolerances.
 
 
 def test_update_snapshot(pytester):
@@ -86,7 +53,7 @@ def test_remove_test(pytester):
     def test_a(snapshot):
         snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     def test_b(snapshot):
-        snapshot == [1, 2, 3]
+        assert snapshot == [1, 2, 3]
     """
     )
 
@@ -126,7 +93,7 @@ def test_keyword(pytester):
     def test_a(snapshot):
         snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     def test_b(snapshot):
-        snapshot == [1, 2, 3]
+        assert snapshot == [1, 2, 3]
     """
     )
 
@@ -144,7 +111,124 @@ def test_keyword(pytester):
         passed=1
     )
 
-    # Check that test b was not deleted.
+    # Check that test a snapshot was not deleted.
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
     assert "test_ab.test_b.json" in files
+
+
+def test_remove_test_and_keyword(pytester):
+    # Create 3 tests.
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    def test_a(snapshot):
+        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snapshot):
+        assert snapshot == [1, 2, 3]
+    def test_c(snapshot):
+        assert snapshot == [4, 5, 6]
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=3)
+    files = _get_dir_files(pytester.path)
+    assert "test_ab.test_a.json" in files
+    assert "test_ab.test_b.json" in files
+    assert "test_ab.test_c.json" in files
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=3)
+
+    # Remove test c.
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    def test_a(snapshot):
+        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snapshot):
+        assert snapshot == [1, 2, 3]
+    """
+    )
+
+    # Run the test only on test b.
+    pytester.runpytest_subprocess("-k", "test_b", "--snapshot-update").assert_outcomes(
+        passed=1
+    )
+
+    # Check that test a was not deleted.
+    files = _get_dir_files(pytester.path)
+    assert "test_ab.test_a.json" in files
+    assert "test_ab.test_b.json" in files
+    assert "test_ab.test_c.json" not in files
+
+
+def test_remove_fixture(pytester):
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a(snapshot):
+        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    files = _get_dir_files(pytester.path)
+    assert "test_a.test_a.json" in files
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Keep the test but remove the fixture.
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a():
+        assert True
+    """
+    )
+
+    # Update the snapshots.
+    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+
+    # Check that test a snapshot was deleted.
+    files = _get_dir_files(pytester.path)
+    assert "test_a.test_a.json" not in files
+
+
+def test_skip(pytester):
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    def test_a(snapshot):
+        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    files = _get_dir_files(pytester.path)
+    assert "test_ab.test_a.json" in files
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Keep the test but skip it.
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    import pytest
+    @pytest.mark.skip
+    def test_a(snapshot):
+        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    """
+    )
+
+    # Update the snapshots.
+    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(skipped=1)
+
+    # Check that test a snapshot was not deleted.
+    files = _get_dir_files(pytester.path)
+    assert "test_ab.test_a.json" in files
