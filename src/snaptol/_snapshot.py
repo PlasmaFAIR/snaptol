@@ -93,6 +93,5 @@ class Snapshot:
     assert_array_almost_equal_nulp = auto_update(npt.assert_array_almost_equal_nulp)
     assert_array_max_ulp = auto_update(npt.assert_array_max_ulp)
     assert_array_equal = auto_update(npt.assert_array_equal)
-    assert_array_less = auto_update(npt.assert_array_less)
     assert_equal = auto_update(npt.assert_equal)
     assert_string_equal = auto_update(npt.assert_string_equal)
