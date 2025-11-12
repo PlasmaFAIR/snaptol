@@ -76,6 +76,9 @@ class Snapshot:
             self.expected, value, self.rtol, self.atol, self.equal_nan
         )
 
+    def __hash__(self):
+        return hash((self.test_file, self.test_name))
+
     def __call__(
         self, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
     ) -> Snapshot:
