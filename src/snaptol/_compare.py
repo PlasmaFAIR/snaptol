@@ -21,6 +21,9 @@ def compare_intelligent(  # noqa: PLR0911, PLR0912
     if isinstance(actual, int) and isinstance(expected, int):
         return actual == expected
 
+    if isinstance(actual, complex) and isinstance(expected, complex):
+        return actual == expected
+
     if isinstance(actual, str) and isinstance(expected, str):
         return actual == expected
 
