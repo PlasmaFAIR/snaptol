@@ -15,6 +15,39 @@ def compare_intelligent(  # noqa: PLR0911, PLR0912
     atol: float = DEFAULT_ATOL,
     equal_nan: bool = False,
 ) -> bool:
+    """
+    Intelligently compare two values of any type for equality. Returns True if the values are considered equal,
+    and False otherwise.
+
+    This function handles various Python data types and performs appropriate comparisons:
+    - Floats: Uses numpy's isclose with relative and absolute tolerances
+    - Integers: Exact equality
+    - Complex numbers: Exact equality
+    - Strings: Exact equality
+    - Booleans: Exact equality
+    - Bytes/Bytearray/Memoryview: Byte-wise equality
+    - None: Identity comparison
+    - NumPy arrays: Uses numpy's allclose
+    - Mappings (dict-like): Deep comparison of keys and values
+    - Iterables: Order-sensitive element-wise comparison
+    - Collections: Length and element-wise comparison
+    - Sets: Order-insensitive comparison of string representations
+    - Other types: Standard equality comparison
+
+    Parameters
+    ----------
+    actual
+        The value to compare
+    expected
+        The expected value to compare against
+    rtol : optional
+        Relative tolerance for floating point comparisons, by default 1e-05
+    atol : optional
+        Absolute tolerance for floating point comparisons, by default 1e-08
+    equal_nan : optional
+        Whether to consider NaN values equal to each other, by default False
+    """
+
     if isinstance(actual, float) or isinstance(expected, float):
         return np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=equal_nan)
 

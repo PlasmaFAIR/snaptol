@@ -8,13 +8,27 @@ from typing import Any, TypeVar
 
 import numpy.testing as npt
 
-from ._compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
-from ._io import read_snapshot, snapshot_filename, write_snapshot
+from .compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
+from .io import read_snapshot, snapshot_filename, write_snapshot
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
 def auto_update(method: F) -> F:
+    """
+    Decorator that handles snapshot updates and comparisons for testing functions.
+
+    Parameters
+    ----------
+    method
+        The testing function to wrap.
+
+    Raises
+    ------
+    AssertionError
+        If snapshot not found and snapshot_update is False.
+    """
+
     @wraps(method)
     def wrapper(self: Snapshot, value: Any, *args, **kwargs):
         if self.snapshot_update:
@@ -43,6 +57,15 @@ class Snapshot:
 
     @classmethod
     def from_request(cls, request) -> Snapshot:
+        """
+        Create a Snapshot instance from a pytest request object. Returns the instansiated Snapshot object.
+
+        Parameters
+        ----------
+        request
+            The pytest request fixture containing test information.
+        """
+
         test_name = request.node.name
         test_file = Path(request.fspath)
         snapshot_file = snapshot_filename(test_name, test_file)
@@ -87,9 +110,26 @@ class Snapshot:
     def match(
         self, value, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
     ) -> bool:
+        """
+        Compare a value with the stored snapshot. Returns True if the values match, False otherwise.
+
+        Parameters
+        ----------
+        value
+            The value to compare with the snapshot.
+        rtol
+            Relative tolerance for comparison.
+        atol
+            Absolute tolerance for comparison.
+        """
+
         return self(rtol=rtol, atol=atol) == value
 
     def matches(self, *args, **kwargs) -> bool:
+        """
+        Alias for match() method. Compare a value with the stored snapshot.
+        """
+
         return self.match(*args, **kwargs)
 
     assert_allclose = auto_update(npt.assert_allclose)
