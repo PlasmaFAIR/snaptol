@@ -5,7 +5,7 @@ from importlib.metadata import (
     version as _version,
 )
 
-from ._snapshot import compare_intelligent
+from .snapshot import compare_intelligent
 
 try:
     __version__ = _version(__name__)

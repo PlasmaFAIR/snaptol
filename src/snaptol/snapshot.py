@@ -8,8 +8,8 @@ from typing import Any, TypeVar
 
 import numpy.testing as npt
 
-from ._compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
-from ._io import read_snapshot, snapshot_filename, write_snapshot
+from .compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
+from .io import read_snapshot, snapshot_filename, write_snapshot
 
 F = TypeVar("F", bound=Callable[..., Any])
 

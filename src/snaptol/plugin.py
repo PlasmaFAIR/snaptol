@@ -1,7 +1,7 @@
 import pytest
 
-from ._io import snapshot_filename
-from ._snapshot import Snapshot
+from .io import snapshot_filename
+from .snapshot import Snapshot
 
 _deselected_items = []
 
