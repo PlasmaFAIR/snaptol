@@ -12,6 +12,8 @@ authors = [
 description = "A Python tool for snapshot testing with numerical tolerance on floating point numbers"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
 dependencies = [
     "numpy>=2.0.0",
     "pytest>=8.4.1",
