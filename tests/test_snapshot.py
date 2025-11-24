@@ -5,21 +5,21 @@ def _get_dir_files(path):
     return [p.name for d in path.rglob("__snapshots__") for p in d.glob("*.json")]
 
 
-def test_gaussian(snapshot):
+def test_gaussian(snaptolshot):
     N = 100
 
     gaussian = np.exp(-(np.linspace(-5.0, 5.0, N) ** 2.0))
 
     # Normal tests.
-    assert snapshot == gaussian
+    assert snaptolshot == gaussian
 
     # Don't do any more testing if we are updating the snapshot.
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
     # Normal tests continued.
-    assert snapshot() == gaussian
-    assert snapshot.match(gaussian)
+    assert snaptolshot() == gaussian
+    assert snaptolshot.match(gaussian)
 
 
 def test_update_snapshot(pytester):
@@ -27,8 +27,8 @@ def test_update_snapshot(pytester):
     pytester.makepyfile(
         test_a="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     """
     )
 
@@ -50,10 +50,10 @@ def test_remove_test(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
-    def test_b(snapshot):
-        assert snapshot == [1, 2, 3]
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
     """
     )
 
@@ -70,8 +70,8 @@ def test_remove_test(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     """
     )
 
@@ -90,10 +90,10 @@ def test_keyword(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
-    def test_b(snapshot):
-        assert snapshot == [1, 2, 3]
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
     """
     )
 
@@ -122,12 +122,12 @@ def test_remove_test_and_keyword(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
-    def test_b(snapshot):
-        assert snapshot == [1, 2, 3]
-    def test_c(snapshot):
-        assert snapshot == [4, 5, 6]
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
+    def test_c(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
     """
     )
 
@@ -145,10 +145,10 @@ def test_remove_test_and_keyword(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
-    def test_b(snapshot):
-        assert snapshot == [1, 2, 3]
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_b(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
     """
     )
 
@@ -168,8 +168,8 @@ def test_remove_fixture(pytester):
     pytester.makepyfile(
         test_a="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     """
     )
 
@@ -202,8 +202,8 @@ def test_skip(pytester):
     pytester.makepyfile(
         test_ab="""
     import numpy as np
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     """
     )
 
@@ -221,8 +221,8 @@ def test_skip(pytester):
     import numpy as np
     import pytest
     @pytest.mark.skip
-    def test_a(snapshot):
-        snapshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
     """
     )
 

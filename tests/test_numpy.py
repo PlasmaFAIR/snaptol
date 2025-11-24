@@ -3,7 +3,7 @@ import numpy.random as npr
 import pytest
 
 
-def test_numpy_allclose(snapshot):
+def test_numpy_allclose(snaptolshot):
     # Example test case of a damped oscillator.
     N = 100
     t = np.linspace(0, 10, N, dtype=float)
@@ -14,89 +14,89 @@ def test_numpy_allclose(snapshot):
     def noise(size):
         return size * (2.0 * generator.random(N) - 1.0)
 
-    snapshot.assert_allclose(y)
+    snaptolshot.assert_allclose(y)
 
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
     # Add some SMALL random noise.
     y_low_noise = y + noise(1e-8)
 
     # Should all still be OK.
-    snapshot.assert_allclose(y_low_noise, rtol=1e-8, atol=1e-8)
+    snaptolshot.assert_allclose(y_low_noise, rtol=1e-8, atol=1e-8)
 
     # Add some BIG random noise.
     y_high_noise = y + noise(1e-7)
 
     with pytest.raises(AssertionError):
-        snapshot.assert_allclose(y_high_noise, rtol=1e-8, atol=1e-8)
+        snaptolshot.assert_allclose(y_high_noise, rtol=1e-8, atol=1e-8)
 
 
-def test_numpy_array_almost_equal_nulp(snapshot):
+def test_numpy_array_almost_equal_nulp(snaptolshot):
     x = np.array([1, 1e-10, 1e-20], dtype=float)
     y = np.nextafter(x, np.inf)  # Only 1 unit in last place (ULP) after x - OK.
     z = np.nextafter(y, np.inf)  # Now 2 ULPs after x - NOT OK.
 
     nulp = 1
 
-    snapshot.assert_array_almost_equal_nulp(x, nulp=nulp)
+    snaptolshot.assert_array_almost_equal_nulp(x, nulp=nulp)
 
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
-    snapshot.assert_array_almost_equal_nulp(y, nulp=nulp)
+    snaptolshot.assert_array_almost_equal_nulp(y, nulp=nulp)
 
     with pytest.raises(AssertionError):
-        snapshot.assert_array_almost_equal_nulp(z, nulp=nulp)
+        snaptolshot.assert_array_almost_equal_nulp(z, nulp=nulp)
 
 
-def test_numpy_array_max_ulp(snapshot):
+def test_numpy_array_max_ulp(snaptolshot):
     x = np.array([2, 2e-10, 2e-20], dtype=float)
     y = x
     maxulp = 5
 
-    snapshot.assert_array_max_ulp(x, maxulp=maxulp)
+    snaptolshot.assert_array_max_ulp(x, maxulp=maxulp)
 
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
     for nulp in range(1, 10):
         y = np.nextafter(y, np.inf)
 
         if nulp <= maxulp:
-            snapshot.assert_array_max_ulp(y, maxulp=maxulp)
+            snaptolshot.assert_array_max_ulp(y, maxulp=maxulp)
         else:
             with pytest.raises(AssertionError):
-                snapshot.assert_array_max_ulp(y, maxulp=maxulp)
+                snaptolshot.assert_array_max_ulp(y, maxulp=maxulp)
 
 
-def test_numpy_array_equal(snapshot):
+def test_numpy_array_equal(snaptolshot):
     x = np.array([1.0, 10.0, 100.0], dtype=float)
 
-    snapshot.assert_array_equal(x)
+    snaptolshot.assert_array_equal(x)
 
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
     y = np.array([2.0, 20.0, 200.0], dtype=float)
 
     with pytest.raises(AssertionError):
-        snapshot.assert_array_equal(y)
+        snaptolshot.assert_array_equal(y)
 
 
-def test_numpy_equal(snapshot):
+def test_numpy_equal(snaptolshot):
     x = np.array([3, 3, 3])
 
-    snapshot.assert_equal(x)
+    snaptolshot.assert_equal(x)
 
 
-def test_numpy_string_equal(snapshot):
+def test_numpy_string_equal(snaptolshot):
     x = "abc"
 
-    snapshot.assert_string_equal(x)
+    snaptolshot.assert_string_equal(x)
 
-    if snapshot.snapshot_update:
+    if snaptolshot.snapshot_update:
         return
 
     with pytest.raises(AssertionError):
-        snapshot.assert_string_equal("def")
+        snaptolshot.assert_string_equal("def")

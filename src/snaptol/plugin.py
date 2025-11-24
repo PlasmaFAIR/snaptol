@@ -7,7 +7,7 @@ _deselected_items = []
 
 
 @pytest.fixture
-def snapshot(request) -> Snapshot:
+def snaptolshot(request) -> Snapshot:
     """
     A pytest fixture that provides a Snapshot object tied to the current test request.
     Returns the instanciated Snapshot object.
@@ -82,7 +82,7 @@ def pytest_sessionfinish(session):
             continue
 
         # A test may still exist that used to have a snapshot file but no longer does -> if so, it's not relevant.
-        if "snapshot" not in item.fixturenames:
+        if "snaptolshot" not in item.fixturenames:
             continue
 
         relevant_snapshot_files.append(snapshot_file)
