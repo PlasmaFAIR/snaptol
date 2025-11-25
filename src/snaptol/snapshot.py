@@ -26,7 +26,7 @@ def auto_update(method: F) -> F:
     Raises
     ------
     AssertionError
-        If snapshot not found and snapshot_update is False.
+        If snapshot not found and ``snapshot_update`` is ``False``.
     """
 
     @wraps(method)
@@ -58,7 +58,8 @@ class Snapshot:
     @classmethod
     def from_request(cls, request) -> Snapshot:
         """
-        Create a Snapshot instance from a pytest request object. Returns the instansiated Snapshot object.
+        Create a ``Snapshot`` instance from a pytest request object. Returns
+        the instansiated ``Snapshot`` object.
 
         Parameters
         ----------
@@ -111,7 +112,7 @@ class Snapshot:
         self, value, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
     ) -> bool:
         """
-        Compare a value with the stored snapshot. Returns True if the values match, False otherwise.
+        Compare a value with the stored snapshot. Returns ``True`` if the values match, ``False`` otherwise.
 
         Parameters
         ----------

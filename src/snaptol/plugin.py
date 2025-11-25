@@ -9,13 +9,13 @@ _deselected_items = []
 @pytest.fixture
 def snaptolshot(request) -> Snapshot:
     """
-    A pytest fixture that provides a Snapshot object tied to the current test request.
+    A pytest fixture that provides a `Snapshot` object tied to the current test request.
     Returns the instanciated Snapshot object.
 
     Parameters
     ----------
-        request
-            The pytest request object containing test context information.
+    request
+        The pytest request object containing test context information.
     """
 
     return Snapshot.from_request(request)
@@ -23,12 +23,13 @@ def snaptolshot(request) -> Snapshot:
 
 def pytest_addoption(parser):
     """
-    Adds the '--snapshot-update' command line option to pytest.
+    Adds the ``--snapshot-update`` command line option to pytest.
     This option enables updating or cleaning up snapshot files during test execution.
 
     Parameters
     ----------
-        parser: The pytest command line parser to which the option will be added.
+    parser
+        The pytest command line parser to which the option will be added.
     """
 
     parser.addoption(
@@ -46,7 +47,8 @@ def pytest_deselected(items):
 
     Parameters
     ----------
-        items: List of pytest test items that were deselected during test collection.
+    items
+        List of pytest test items that were deselected during test collection.
     """
 
     global _deselected_items  # noqa: PLW0603
@@ -56,14 +58,16 @@ def pytest_deselected(items):
 
 def pytest_sessionfinish(session):
     """
-    Runs after all tests are completed. When '--snapshot-update' option is enabled, it scans through
-    all test items (including deselected ones) to identify relevant snapshot files. Any snapshot file
-    that is not associated with an existing test using the 'snapshot' fixture will be deleted, ensuring
-    only active snapshots are maintained.
+    Runs after all tests are completed. When the ``--snapshot-update`` option
+    is enabled, it scans through all test items (including deselected ones) to
+    identify relevant snapshot files. Any snapshot file that is not associated
+    with an existing test using the `snaptolshot` fixture will be deleted,
+    ensuring only active snapshots are maintained.
 
     Parameters
     ----------
-        session: The pytest session object containing test execution information.
+    session
+        The pytest session object containing test execution information.
     """
 
     if not session.config.getoption("--snapshot-update"):

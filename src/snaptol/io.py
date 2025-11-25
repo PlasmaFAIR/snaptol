@@ -12,9 +12,9 @@ def snapshot_filename(test_name: str, test_file: Path) -> Path:
 
     Parameters
     ----------
-    test_name : str
+    test_name
         The name of the test for which the snapshot is being created.
-    test_file : Path
+    test_file
         The path to the test file containing the test.
     """
 
@@ -45,7 +45,7 @@ def read_snapshot(snapshot_file: Path) -> Any:
 
     Parameters
     ----------
-    snapshot_file : Path
+    snapshot_file
         The path to the snapshot file to be read.
     """
 
@@ -60,7 +60,7 @@ def _json_fallback(value: Any) -> Any:
 
     Parameters
     ----------
-    value : Any
+    value
         The value to be serialised to JSON format.
     """
 
