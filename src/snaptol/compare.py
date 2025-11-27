@@ -16,22 +16,23 @@ def compare_intelligent(  # noqa: PLR0911, PLR0912
     equal_nan: bool = False,
 ) -> bool:
     """
-    Intelligently compare two values of any type for equality. Returns True if the values are considered equal,
-    and False otherwise.
+    Intelligently compare two values of any type for equality. Returns ``True``
+    if the values are considered equal, and ``False`` otherwise.
 
     This function handles various Python data types and performs appropriate comparisons:
-    - Floats: Uses numpy's isclose with relative and absolute tolerances
-    - Integers: Exact equality
-    - Complex numbers: Exact equality
-    - Strings: Exact equality
-    - Booleans: Exact equality
-    - Bytes/Bytearray/Memoryview: Byte-wise equality
-    - None: Identity comparison
+
+    - ``Floats``: Uses numpy's ``isclose`` with relative and absolute tolerances
+    - ``Integers``: Exact equality
+    - ``Complex``: Exact equality
+    - ``Strings``: Exact equality
+    - ``Booleans``: Exact equality
+    - ``Bytes``/``Bytearray``/``Memoryview``: Byte-wise equality
+    - ``None``: Identity comparison
     - NumPy arrays: Uses numpy's allclose
-    - Mappings (dict-like): Deep comparison of keys and values
-    - Iterables: Order-sensitive element-wise comparison
-    - Collections: Length and element-wise comparison
-    - Sets: Order-insensitive comparison of string representations
+    - ``Mapping`` (dict-like): Deep comparison of keys and values
+    - ``Iterable``: Order-sensitive element-wise comparison
+    - ``Collection``: Length and element-wise comparison
+    - ``Set``: Order-insensitive comparison of string representations
     - Other types: Standard equality comparison
 
     Parameters
