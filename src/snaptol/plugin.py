@@ -70,7 +70,12 @@ def pytest_sessionfinish(session):
         The pytest session object containing test execution information.
     """
 
+    # Don't need to clean up files if we are not running a snapshot update.
     if not session.config.getoption("--snapshot-update"):
+        return
+
+    # Don't need to clean up files if we are only running tests that previously failed.
+    if session.config.getoption("--lf") or session.config.getoption("--last-failed"):
         return
 
     # The items (tests) that are in the session are relevant and thus their snapshot files musn't be deleted.
