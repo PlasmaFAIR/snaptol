@@ -14,7 +14,7 @@ def test_gaussian(snaptolshot):
     assert snaptolshot == gaussian
 
     # Don't do any more testing if we are updating the snapshot.
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     # Normal tests continued.
@@ -38,7 +38,7 @@ def test_update_snapshot(pytester):
     result.stdout.fnmatch_lines(["*Snapshot not found*"])
 
     # Assert that the snapshot file is created.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
     assert "test_a.test_a.json" in _get_dir_files(pytester.path)
 
     # Assert that the snapshot check passes.
@@ -58,7 +58,7 @@ def test_remove_test(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=2)
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
     assert "test_ab.test_b.json" in files
@@ -76,7 +76,7 @@ def test_remove_test(pytester):
     )
 
     # Update the snapshots - should delete snapshot file b.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
     assert "test_ab.test_b.json" not in files
@@ -98,7 +98,7 @@ def test_keyword(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=2)
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
     assert "test_ab.test_b.json" in files
@@ -107,7 +107,7 @@ def test_keyword(pytester):
     pytester.runpytest_subprocess().assert_outcomes(passed=2)
 
     # Run the test only on test b.
-    pytester.runpytest_subprocess("-k", "test_b", "--snapshot-update").assert_outcomes(
+    pytester.runpytest_subprocess("-k", "test_b", "--snaptol-update").assert_outcomes(
         passed=1
     )
 
@@ -132,7 +132,7 @@ def test_remove_test_and_keyword(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=3)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=3)
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
     assert "test_ab.test_b.json" in files
@@ -153,7 +153,7 @@ def test_remove_test_and_keyword(pytester):
     )
 
     # Run the test only on test b.
-    pytester.runpytest_subprocess("-k", "test_b", "--snapshot-update").assert_outcomes(
+    pytester.runpytest_subprocess("-k", "test_b", "--snaptol-update").assert_outcomes(
         passed=1
     )
 
@@ -174,7 +174,7 @@ def test_remove_fixture(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
     files = _get_dir_files(pytester.path)
     assert "test_a.test_a.json" in files
 
@@ -191,7 +191,7 @@ def test_remove_fixture(pytester):
     )
 
     # Update the snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
 
     # Check that test a snapshot was deleted.
     files = _get_dir_files(pytester.path)
@@ -208,7 +208,7 @@ def test_skip(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
     files = _get_dir_files(pytester.path)
     assert "test_ab.test_a.json" in files
 
@@ -227,7 +227,7 @@ def test_skip(pytester):
     )
 
     # Update the snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(skipped=1)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(skipped=1)
 
     # Check that test a snapshot was not deleted.
     files = _get_dir_files(pytester.path)

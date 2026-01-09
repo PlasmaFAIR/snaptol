@@ -16,7 +16,7 @@ def test_numpy_allclose(snaptolshot):
 
     snaptolshot.assert_allclose(y)
 
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     # Add some SMALL random noise.
@@ -41,7 +41,7 @@ def test_numpy_array_almost_equal_nulp(snaptolshot):
 
     snaptolshot.assert_array_almost_equal_nulp(x, nulp=nulp)
 
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     snaptolshot.assert_array_almost_equal_nulp(y, nulp=nulp)
@@ -57,7 +57,7 @@ def test_numpy_array_max_ulp(snaptolshot):
 
     snaptolshot.assert_array_max_ulp(x, maxulp=maxulp)
 
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     for nulp in range(1, 10):
@@ -75,7 +75,7 @@ def test_numpy_array_equal(snaptolshot):
 
     snaptolshot.assert_array_equal(x)
 
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     y = np.array([2.0, 20.0, 200.0], dtype=float)
@@ -95,7 +95,7 @@ def test_numpy_string_equal(snaptolshot):
 
     snaptolshot.assert_string_equal(x)
 
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     with pytest.raises(AssertionError):

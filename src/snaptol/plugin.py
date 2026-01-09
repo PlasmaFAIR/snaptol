@@ -23,7 +23,7 @@ def snaptolshot(request) -> Snapshot:
 
 def pytest_addoption(parser):
     """
-    Adds the ``--snapshot-update`` command line option to pytest.
+    Adds the ``--snaptol-update`` command line option to pytest.
     This option enables updating or cleaning up snapshot files during test execution.
 
     Parameters
@@ -33,7 +33,7 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--snapshot-update",
+        "--snaptol-update",
         action="store_true",
         default=False,
         help="Update snaptol snapshot files",
@@ -58,7 +58,7 @@ def pytest_deselected(items):
 
 def pytest_sessionfinish(session):
     """
-    Runs after all tests are completed. When the ``--snapshot-update`` option
+    Runs after all tests are completed. When the ``--snaptol-update`` option
     is enabled, it scans through all test items (including deselected ones) to
     identify relevant snapshot files. Any snapshot file that is not associated
     with an existing test using the `snaptolshot` fixture will be deleted,
@@ -71,7 +71,7 @@ def pytest_sessionfinish(session):
     """
 
     # Don't need to clean up files if we are not running a snapshot update.
-    if not session.config.getoption("--snapshot-update"):
+    if not session.config.getoption("--snaptol-update"):
         return
 
     # Don't need to clean up files if we are only running tests that previously failed.

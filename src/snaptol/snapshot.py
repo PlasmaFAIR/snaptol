@@ -26,12 +26,12 @@ def auto_update(method: F) -> F:
     Raises
     ------
     AssertionError
-        If snapshot not found and ``snapshot_update`` is ``False``.
+        If snapshot not found and ``snaptol_update`` is ``False``.
     """
 
     @wraps(method)
     def wrapper(self: Snapshot, value: Any, *args, **kwargs):
-        if self.snapshot_update:
+        if self.snaptol_update:
             write_snapshot(self.snapshot_file, value)
             return True
 
@@ -48,7 +48,7 @@ class Snapshot:
     test_name: str
     test_file: Path
     snapshot_file: Path
-    snapshot_update: bool
+    snaptol_update: bool
     snapshot_found: bool = False
     rtol: float = DEFAULT_RTOL
     atol: float = DEFAULT_ATOL
@@ -70,17 +70,17 @@ class Snapshot:
         test_name = request.node.name
         test_file = Path(request.fspath)
         snapshot_file = snapshot_filename(test_name, test_file)
-        snapshot_update = request.config.getoption("--snapshot-update")
+        snaptol_update = request.config.getoption("--snaptol-update")
 
         return cls(
             test_name=test_name,
             test_file=test_file,
             snapshot_file=snapshot_file,
-            snapshot_update=snapshot_update,
+            snaptol_update=snaptol_update,
         )
 
     def __post_init__(self) -> None:
-        if not self.snapshot_update:
+        if not self.snaptol_update:
             try:
                 self.expected = read_snapshot(self.snapshot_file)
                 self.snapshot_found = True
@@ -89,7 +89,7 @@ class Snapshot:
                 self.snapshot_found = False
 
     def __eq__(self, value: Any) -> bool:
-        if self.snapshot_update:
+        if self.snaptol_update:
             write_snapshot(self.snapshot_file, value)
             return True
 
