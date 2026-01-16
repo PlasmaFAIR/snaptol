@@ -126,7 +126,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items
         List of collected pytest test items that can be modified in-place.
     """
-    
+
     if not config.getoption("--snaptol-update") and not config.getoption(
         "--snaptol-update-all"
     ):
