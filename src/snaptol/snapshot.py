@@ -7,9 +7,16 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import numpy.testing as npt
+import pytest
 
 from .compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
-from .io import read_snapshot, snapshot_filename, write_snapshot
+from .io import (
+    _cache_failed_test,
+    _uncache_test,
+    read_snapshot,
+    snapshot_filename,
+    write_snapshot,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -33,12 +40,19 @@ def auto_update(method: F) -> F:
     def wrapper(self: Snapshot, value: Any, *args, **kwargs):
         if self.snaptol_update:
             write_snapshot(self.snapshot_file, value)
+            _uncache_test(self.cache, self.nodeid)
             return True
 
         if not self.snapshot_found:
             raise AssertionError("Snapshot not found.")
 
-        return method(value, self.expected, *args, **kwargs)
+        try:
+            method(value, self.expected, *args, **kwargs)
+        except AssertionError:
+            _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
+            raise
+
+        return True
 
     return wrapper
 
@@ -47,6 +61,7 @@ def auto_update(method: F) -> F:
 class Snapshot:
     test_name: str
     test_file: Path
+    nodeid: str
     snapshot_file: Path
     snaptol_update: bool
     snapshot_found: bool = False
@@ -54,6 +69,7 @@ class Snapshot:
     atol: float = DEFAULT_ATOL
     equal_nan: bool = False
     expected: Any = dataclasses.field(init=False, repr=False)
+    cache: pytest.Cache = None
 
     @classmethod
     def from_request(cls, request) -> Snapshot:
@@ -69,14 +85,20 @@ class Snapshot:
 
         test_name = request.node.name
         test_file = Path(request.fspath)
+        nodeid = request.node.nodeid
         snapshot_file = snapshot_filename(test_name, test_file)
-        snaptol_update = request.config.getoption("--snaptol-update")
+        snaptol_update = request.config.getoption(
+            "--snaptol-update"
+        ) or request.config.getoption("--snaptol-update-all")
+        cache = request.config.cache
 
         return cls(
             test_name=test_name,
             test_file=test_file,
+            nodeid=nodeid,
             snapshot_file=snapshot_file,
             snaptol_update=snaptol_update,
+            cache=cache,
         )
 
     def __post_init__(self) -> None:
@@ -91,14 +113,21 @@ class Snapshot:
     def __eq__(self, value: Any) -> bool:
         if self.snaptol_update:
             write_snapshot(self.snapshot_file, value)
+            _uncache_test(self.cache, self.nodeid)
             return True
 
         if not self.snapshot_found:
-            return False
+            raise AssertionError("Snapshot not found.")
 
-        return compare_intelligent(
+        success = compare_intelligent(
             self.expected, value, self.rtol, self.atol, self.equal_nan
         )
+
+        if not success:
+            _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
+            return False
+
+        return True
 
     def __hash__(self):
         return hash((self.test_file, self.test_name))

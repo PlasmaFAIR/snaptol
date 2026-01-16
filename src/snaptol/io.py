@@ -2,7 +2,10 @@ from json import dumps, loads
 from pathlib import Path
 from typing import Any
 
+import pytest
 from numpy import ndarray
+
+CACHE_KEY = "snaptol"
 
 
 def snapshot_filename(test_name: str, test_file: Path) -> Path:
@@ -71,3 +74,55 @@ def _json_fallback(value: Any) -> Any:
         pass
 
     return repr(value)
+
+
+def _cache_failed_test(
+    cache: pytest.Cache, nodeid: str, snapshot_file: Path, data: Any
+):
+    """
+    Caches the snapshot data from a failed test to enable later regeneration without re-running the test.
+    This allows the ``--use-snaptol-cache`` option to update snapshots using cached data.
+    Serialises the data to JSON format if possible, falling back to string representation if needed.
+
+    Parameters
+    ----------
+    cache
+        The pytest cache object used to store and retrieve test data.
+    nodeid
+        The unique identifier of the test node whose snapshot data is being cached.
+    snapshot_file
+        The path to the snapshot file associated with the test.
+    data
+        The snapshot data to be cached, which will be serialised if possible.
+    """
+
+    try:
+        dumps(data)
+    except (TypeError, OverflowError):
+        data = _json_fallback(data)
+
+    cached = cache.get(CACHE_KEY, {})
+
+    cached[nodeid] = {"snapshot_file": str(snapshot_file), "data": data}
+
+    cache.set(CACHE_KEY, cached)
+
+
+def _uncache_test(cache: pytest.Cache, nodeid: str):
+    """
+    Removes a test entry from the snaptol cache after it has been successfully updated.
+    This is typically called when a snapshot has been regenerated normally without using the cache.
+
+    Parameters
+    ----------
+    cache
+        The pytest cache object used to store and retrieve test data.
+    nodeid
+        The unique identifier of the test node to be removed from the cache.
+    """
+
+    cached = cache.get(CACHE_KEY, {})
+
+    cached.pop(nodeid, None)
+
+    cache.set(CACHE_KEY, cached)

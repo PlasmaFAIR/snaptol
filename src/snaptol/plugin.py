@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import pytest
 
-from .io import snapshot_filename
+from .io import CACHE_KEY, snapshot_filename, write_snapshot
 from .snapshot import Snapshot
 
 _deselected_items = []
@@ -92,8 +94,98 @@ def pytest_configure(config: pytest.Config):
             "Cannot use both --snaptol-update and --snaptol-update-all options"
         )
 
+    if (
+        not config.getoption("--snaptol-update")
+        and not config.getoption("--snaptol-update-all")
+        and config.getoption("--use-snaptol-cache")
+    ):
+        raise ValueError(
+            "Cannot use --use-snaptol-cache option without --snaptol-update or --snaptol-update-all"
+        )
 
-def pytest_deselected(items):
+    if config.getoption("--snaptol-update-all") and (
+        config.getoption("--last-failed") or config.getoption("--lf")
+    ):
+        raise ValueError("Cannot use --snaptol-update-all with --last-failed or --lf")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]):
+    """
+    Modifies the collection of test items based on snapshot update options.
+
+    This hook is called after test collection to potentially filter which tests
+    should be executed. When ``--snaptol-update`` is used, only tests that failed
+    in the previous run are kept for execution. When ``--use-snaptol-cache`` is
+    enabled, tests with cached snapshot data are deselected and their snapshots
+    are written directly from cache without re-running the tests.
+
+    Parameters
+    ----------
+    config
+        The pytest configuration object containing command line options and cache.
+    items
+        List of collected pytest test items that can be modified in-place.
+    """
+    
+    if not config.getoption("--snaptol-update") and not config.getoption(
+        "--snaptol-update-all"
+    ):
+        return
+
+    if not items:
+        return
+
+    # If normal update then we only update the tests that previously failed.
+    if config.getoption("--snaptol-update"):
+        lastfailed = config.cache.get("cache/lastfailed", {})
+
+        # If none failed last then we don't need to update anything.
+        if not lastfailed:
+            config.hook.pytest_deselected(items=items)
+            items[:] = []
+            return
+
+        # We have some failed tests. Remove any that passed.
+        to_keep = [item for item in items if item.nodeid in lastfailed]
+        to_deselect = [item for item in items if item.nodeid not in lastfailed]
+
+        if to_deselect:
+            config.hook.pytest_deselected(items=to_deselect)
+
+        items[:] = to_keep
+
+    if config.getoption("--use-snaptol-cache"):
+        cached = config.cache.get(CACHE_KEY, {})
+
+        to_keep = []
+        to_deselect = []
+
+        for item in items:
+            entry = cached.get(item.nodeid, None)
+
+            if entry is None:
+                to_keep.append(item)
+                continue
+
+            snapshot_file = Path(entry["snapshot_file"])
+            data = entry["data"]
+
+            write_snapshot(snapshot_file, data)
+
+            to_deselect.append(item)
+
+        if to_deselect:
+            config.hook.pytest_deselected(items=to_deselect)
+
+            for nodeid in [item.nodeid for item in to_deselect]:
+                cached.pop(nodeid, None)
+
+            config.cache.set(CACHE_KEY, cached)
+
+        items[:] = to_keep
+
+
+def pytest_deselected(items: list[pytest.Item]):
     """
     Stores deselected test items for later processing during the test session cleanup.
     This hook is called when tests are deselected (e.g., by using test markers or keywords).
@@ -123,12 +215,8 @@ def pytest_sessionfinish(session: pytest.Session):
         The pytest session object containing test execution information.
     """
 
-    # Don't need to clean up files if we are not running a snapshot update.
-    if not session.config.getoption("--snaptol-update"):
-        return
-
-    # Don't need to clean up files if we are only running tests that previously failed.
-    if session.config.getoption("--lf") or session.config.getoption("--last-failed"):
+    # Don't need to clean up files if we are not running a full snapshot update.
+    if not session.config.getoption("--snaptol-update-all"):
         return
 
     # The items (tests) that are in the session are relevant and thus their snapshot files musn't be deleted.
