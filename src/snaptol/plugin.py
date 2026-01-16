@@ -7,7 +7,7 @@ _deselected_items = []
 
 
 @pytest.fixture
-def snaptolshot(request) -> Snapshot:
+def snaptolshot(request: pytest.FixtureRequest) -> Snapshot:
     """
     A pytest fixture that provides a `Snapshot` object tied to the current test request.
     Returns the instanciated Snapshot object.
@@ -21,7 +21,7 @@ def snaptolshot(request) -> Snapshot:
     return Snapshot.from_request(request)
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     """
     Adds the ``--snaptol-update`` command line option to pytest.
     This option enables updating or cleaning up snapshot files during test execution.
@@ -36,8 +36,61 @@ def pytest_addoption(parser):
         "--snaptol-update",
         action="store_true",
         default=False,
-        help="Update snaptol snapshot files",
+        help="Update snaptol snapshot files of previously failed tests",
     )
+
+    parser.addoption(
+        "--snaptol-update-all",
+        action="store_true",
+        default=False,
+        help="Update all snaptol snapshot files",
+    )
+
+    parser.addoption(
+        "--use-snaptol-cache",
+        action="store_true",
+        default=False,
+        help="In update mode, use cached snaptol snapshot data if available",
+    )
+
+    parser.addoption(
+        "--show-snaptol-cache",
+        action="store_true",
+        default=False,
+        help="Show cached snaptol snapshot data",
+    )
+
+    parser.addoption(
+        "--snaptol-clear-cache",
+        action="store_true",
+        default=False,
+        help="Clear cached snaptol snapshot data",
+    )
+
+
+def pytest_configure(config: pytest.Config):
+    """
+    Validates command line option combinations for snaptol snapshot management.
+    This hook is called during pytest configuration to ensure that incompatible
+    options are not used together.
+
+    Parameters
+    ----------
+    config
+        The pytest configuration object containing command line options and settings.
+
+    Raises
+    ------
+    ValueError
+        If incompatible command line options are used together.
+    """
+
+    if config.getoption("--snaptol-update") and config.getoption(
+        "--snaptol-update-all"
+    ):
+        raise ValueError(
+            "Cannot use both --snaptol-update and --snaptol-update-all options"
+        )
 
 
 def pytest_deselected(items):
@@ -56,7 +109,7 @@ def pytest_deselected(items):
     _deselected_items = items
 
 
-def pytest_sessionfinish(session):
+def pytest_sessionfinish(session: pytest.Session):
     """
     Runs after all tests are completed. When the ``--snaptol-update`` option
     is enabled, it scans through all test items (including deselected ones) to
