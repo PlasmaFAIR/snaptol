@@ -87,25 +87,22 @@ def pytest_configure(config: pytest.Config):
         If incompatible command line options are used together.
     """
 
-    if config.getoption("--snaptol-update") and config.getoption(
-        "--snaptol-update-all"
-    ):
+    snaptol_update = config.getoption("--snaptol-update")
+    snaptol_update_all = config.getoption("--snaptol-update-all")
+    snaptol_use_cache = config.getoption("--snaptol-use-cache")
+    last_failed = config.getoption("--last-failed") or config.getoption("--lf")
+
+    if snaptol_update and snaptol_update_all:
         raise ValueError(
             "Cannot use both --snaptol-update and --snaptol-update-all options"
         )
 
-    if (
-        not config.getoption("--snaptol-update")
-        and not config.getoption("--snaptol-update-all")
-        and config.getoption("--snaptol-use-cache")
-    ):
+    if not snaptol_update and not snaptol_update_all and snaptol_use_cache:
         raise ValueError(
             "Cannot use --snaptol-use-cache option without --snaptol-update or --snaptol-update-all"
         )
 
-    if config.getoption("--snaptol-update-all") and (
-        config.getoption("--last-failed") or config.getoption("--lf")
-    ):
+    if snaptol_update_all and last_failed:
         raise ValueError("Cannot use --snaptol-update-all with --last-failed or --lf")
 
 
@@ -127,16 +124,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         List of collected pytest test items that can be modified in-place.
     """
 
-    if not config.getoption("--snaptol-update") and not config.getoption(
-        "--snaptol-update-all"
-    ):
+    snaptol_update = config.getoption("--snaptol-update")
+    snaptol_update_all = config.getoption("--snaptol-update-all")
+    snaptol_use_cache = config.getoption("--snaptol-use-cache")
+
+    if not snaptol_update and not snaptol_update_all:
         return
 
     if not items:
         return
 
     # If normal update then we only update the tests that previously failed.
-    if config.getoption("--snaptol-update"):
+    if snaptol_update:
         lastfailed = config.cache.get("cache/lastfailed", {})
 
         # If none failed last then we don't need to update anything.
@@ -154,7 +153,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
         items[:] = to_keep
 
-    if config.getoption("--snaptol-use-cache"):
+    if snaptol_use_cache:
         cached = config.cache.get(CACHE_KEY, {})
 
         to_keep = []
