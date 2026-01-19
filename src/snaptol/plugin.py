@@ -49,14 +49,14 @@ def pytest_addoption(parser: pytest.Parser):
     )
 
     parser.addoption(
-        "--use-snaptol-cache",
+        "--snaptol-use-cache",
         action="store_true",
         default=False,
         help="In update mode, use cached snaptol snapshot data if available",
     )
 
     parser.addoption(
-        "--show-snaptol-cache",
+        "--snaptol-show-cache",
         action="store_true",
         default=False,
         help="Show cached snaptol snapshot data",
@@ -97,10 +97,10 @@ def pytest_configure(config: pytest.Config):
     if (
         not config.getoption("--snaptol-update")
         and not config.getoption("--snaptol-update-all")
-        and config.getoption("--use-snaptol-cache")
+        and config.getoption("--snaptol-use-cache")
     ):
         raise ValueError(
-            "Cannot use --use-snaptol-cache option without --snaptol-update or --snaptol-update-all"
+            "Cannot use --snaptol-use-cache option without --snaptol-update or --snaptol-update-all"
         )
 
     if config.getoption("--snaptol-update-all") and (
@@ -115,7 +115,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
     This hook is called after test collection to potentially filter which tests
     should be executed. When ``--snaptol-update`` is used, only tests that failed
-    in the previous run are kept for execution. When ``--use-snaptol-cache`` is
+    in the previous run are kept for execution. When ``--snaptol-use-cache`` is
     enabled, tests with cached snapshot data are deselected and their snapshots
     are written directly from cache without re-running the tests.
 
@@ -154,7 +154,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
         items[:] = to_keep
 
-    if config.getoption("--use-snaptol-cache"):
+    if config.getoption("--snaptol-use-cache"):
         cached = config.cache.get(CACHE_KEY, {})
 
         to_keep = []

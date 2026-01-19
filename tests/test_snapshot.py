@@ -278,7 +278,7 @@ def test_use_cache(pytester):
 
     # Update the snapshots using the cache - we should therefore skip doing the test.
     pytester.runpytest_subprocess(
-        "--snaptol-update", "--use-snaptol-cache"
+        "--snaptol-update", "--snaptol-use-cache"
     ).assert_outcomes(deselected=1)
 
     # Check the test now passes.
