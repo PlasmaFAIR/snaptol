@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from .io import CACHE_KEY, snapshot_filename, write_snapshot
+from .io import _get_cache, _set_cache, snapshot_filename, write_snapshot
 from .snapshot import Snapshot
 
 _deselected_items = []
@@ -136,7 +136,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
     # If normal update then we only update the tests that previously failed.
     if snaptol_update:
-        lastfailed = config.cache.get("cache/lastfailed", {})
+        lastfailed = _get_cache(config.cache, cache_key="cache/lastfailed")
 
         # If none failed last then we don't need to update anything.
         if not lastfailed:
@@ -154,7 +154,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         items[:] = to_keep
 
     if snaptol_use_cache:
-        cached = config.cache.get(CACHE_KEY, {})
+        cached = _get_cache(config.cache)
 
         to_keep = []
         to_deselect = []
@@ -179,7 +179,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             for nodeid in [item.nodeid for item in to_deselect]:
                 cached.pop(nodeid, None)
 
-            config.cache.set(CACHE_KEY, cached)
+            _set_cache(config.cache, cached)
 
         items[:] = to_keep
 

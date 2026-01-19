@@ -76,6 +76,14 @@ def _json_fallback(value: Any) -> Any:
     return repr(value)
 
 
+def _get_cache(cache: pytest.Cache, cache_key: str = CACHE_KEY) -> dict:
+    return cache.get(cache_key, {}) or {}
+
+
+def _set_cache(cache: pytest.Cache, data: dict, cache_key: str = CACHE_KEY) -> None:
+    cache.set(cache_key, data)
+
+
 def _cache_failed_test(
     cache: pytest.Cache, nodeid: str, snapshot_file: Path, data: Any
 ):
