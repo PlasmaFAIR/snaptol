@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from .io import _get_cache, _set_cache, snapshot_filename, write_snapshot
+from .io import (
+    DIFFS_STASH_KEY,
+    _get_cache,
+    _set_cache,
+    _show_test_diff,
+    snapshot_filename,
+    write_snapshot,
+)
 from .snapshot import Snapshot
 
 _deselected_items = []
@@ -67,6 +74,13 @@ def pytest_addoption(parser: pytest.Parser):
         action="store_true",
         default=False,
         help="Clear cached snaptol snapshot data",
+    )
+
+    parser.addoption(
+        "--snaptol-show-diff",
+        action="store_true",
+        default=False,
+        help="Show diff in update mode when snapshot data does not match data on file",
     )
 
 
@@ -241,3 +255,28 @@ def pytest_sessionfinish(session: pytest.Session):
         for path in snapshot_dir.glob("*.json"):
             if path not in relevant_snapshot_files:
                 path.unlink(missing_ok=True)
+
+
+def pytest_terminal_summary(
+    terminalreporter: pytest.TerminalReporter, config: pytest.Config
+):
+    """
+    Reports to the terminal information regarding the tests performed and any information
+    requested by the user during the test session, such as snapshot differences or cache usage.
+
+    Parameters
+    ----------
+    terminalreporter
+        The terminal reporter object used for writing to the terminal.
+
+    config
+        The pytest configuration object containing the state and options of the test session.
+    """
+    if diffs := config.stash.get(DIFFS_STASH_KEY, []):
+        terminalreporter.ensure_newline()
+        terminalreporter.write_line(" -+- snaptol diffs -+-", bold=True)
+
+        for diff in diffs:
+            _show_test_diff(
+                terminalreporter, diff.snapshot_file, diff.before, diff.after
+            )

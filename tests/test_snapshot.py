@@ -340,3 +340,52 @@ def test_delete_cache(pytester):
         cache_lines = f.read()
 
     assert cache_lines == "{}"
+
+
+def test_show_diff(pytester):
+    pytester.makepyfile(
+        test_a="""
+        def test_a(snaptolshot):
+            assert snaptolshot == [1, 3]
+        """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Add some values inbetween others.
+    pytester.makepyfile(
+        test_a="""
+        def test_a(snaptolshot):
+            assert snaptolshot == [1, 2, 3]
+        """
+    )
+
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Update the snapshot showing the difference and check it looks OK.
+    result = pytester.runpytest_subprocess(
+        "--snaptol-update-all", "--snaptol-show-diff"
+    )
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(
+        [
+            " -+- snaptol diffs -+-",
+            "--------------------------------------------------------------------------------",
+            " Snapshot: *__snapshots__/test_a.test_a.json",
+            "",
+            "--- before",
+            "+++ after",
+            "@@ * @@",
+            " [",
+            "   1,",
+            "+  2,",
+            "   3",
+        ],
+        consecutive=True,
+    )

@@ -11,7 +11,9 @@ import pytest
 
 from .compare import DEFAULT_ATOL, DEFAULT_RTOL, compare_intelligent
 from .io import (
+    SENTINEL,
     _cache_failed_test,
+    _store_test_diff,
     _uncache_test,
     read_snapshot,
     snapshot_filename,
@@ -37,10 +39,24 @@ def auto_update(method: F) -> F:
     """
 
     @wraps(method)
-    def wrapper(self: Snapshot, value: Any, *args, **kwargs):
-        if self.snaptol_update:
-            write_snapshot(self.snapshot_file, value)
-            _uncache_test(self.cache, self.nodeid)
+    def wrapper(snapshot: Snapshot, value: Any, *args, **kwargs):
+        if snapshot.snaptol_update:
+            # Output a diff if there is a difference between value and snapshot file.
+            if snapshot.show_update_diff:
+                try:
+                    method(value, snapshot.expected, *args, **kwargs)
+                except AssertionError:
+                    _store_test_diff(
+                        snapshot.config,
+                        snapshot.snapshot_file,
+                        before=snapshot.expected
+                        if snapshot.snapshot_found
+                        else SENTINEL,
+                        after=value,
+                    )
+
+            write_snapshot(snapshot.snapshot_file, value)
+            _uncache_test(snapshot.cache, snapshot.nodeid)
             return True
 
         try:
@@ -66,13 +82,15 @@ class Snapshot:
     test_file: Path
     nodeid: str
     snapshot_file: Path
-    snaptol_update: bool
+    snaptol_update: bool = False
     snapshot_found: bool = False
+    show_update_diff: bool = False
     rtol: float = DEFAULT_RTOL
     atol: float = DEFAULT_ATOL
     equal_nan: bool = False
     expected: Any = dataclasses.field(init=False, repr=False)
     cache: pytest.Cache = None
+    config: pytest.Config = None
 
     @classmethod
     def from_request(cls, request) -> Snapshot:
@@ -93,7 +111,9 @@ class Snapshot:
         snaptol_update = request.config.getoption(
             "--snaptol-update"
         ) or request.config.getoption("--snaptol-update-all")
+        show_update_diff = request.config.getoption("--snaptol-show-diff")
         cache = request.config.cache
+        config = request.config
 
         return cls(
             test_name=test_name,
@@ -101,20 +121,32 @@ class Snapshot:
             nodeid=nodeid,
             snapshot_file=snapshot_file,
             snaptol_update=snaptol_update,
+            show_update_diff=show_update_diff,
             cache=cache,
+            config=config,
         )
 
     def __post_init__(self) -> None:
-        if not self.snaptol_update:
-            try:
-                self.expected = read_snapshot(self.snapshot_file)
-                self.snapshot_found = True
-            except FileNotFoundError:
-                self.expected = None
-                self.snapshot_found = False
+        try:
+            self.expected = read_snapshot(self.snapshot_file)
+            self.snapshot_found = True
+        except FileNotFoundError:
+            self.expected = None
+            self.snapshot_found = False
 
     def __eq__(self, value: Any) -> bool:
         if self.snaptol_update:
+            # Output a diff if there is a difference between value and snapshot file.
+            if self.show_update_diff and not compare_intelligent(
+                self.expected, value, self.rtol, self.atol, self.equal_nan
+            ):
+                _store_test_diff(
+                    self.config,
+                    self.snapshot_file,
+                    before=self.expected if self.snapshot_found else SENTINEL,
+                    after=value,
+                )
+
             write_snapshot(self.snapshot_file, value)
             _uncache_test(self.cache, self.nodeid)
             return True
