@@ -36,7 +36,7 @@ def test_update_snapshot(pytester):
     # Assert that the snapshot file is not found.
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(["*Snapshot not found*"])
+    result.stdout.fnmatch_lines(["*Snapshot file not found*"])
 
     # Assert that the snapshot file is created.
     pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)

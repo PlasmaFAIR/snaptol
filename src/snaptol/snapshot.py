@@ -43,13 +43,16 @@ def auto_update(method: F) -> F:
             _uncache_test(self.cache, self.nodeid)
             return True
 
-        if not self.snapshot_found:
-            raise AssertionError("Snapshot not found.")
-
         try:
-            method(value, self.expected, *args, **kwargs)
-        except AssertionError:
-            _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
+            if not snapshot.snapshot_found:
+                raise FileNotFoundError("Snapshot file not found.")
+
+            method(value, snapshot.expected, *args, **kwargs)
+
+        except (AssertionError, FileNotFoundError):
+            _cache_failed_test(
+                snapshot.cache, snapshot.nodeid, snapshot.snapshot_file, value
+            )
             raise
 
         return True
@@ -116,15 +119,20 @@ class Snapshot:
             _uncache_test(self.cache, self.nodeid)
             return True
 
-        if not self.snapshot_found:
-            raise AssertionError("Snapshot not found.")
-
-        success = compare_intelligent(
-            self.expected, value, self.rtol, self.atol, self.equal_nan
+        success = (
+            compare_intelligent(
+                self.expected, value, self.rtol, self.atol, self.equal_nan
+            )
+            if self.snapshot_found
+            else False
         )
 
         if not success:
             _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
+
+            if not self.snapshot_found:
+                raise FileNotFoundError("Snapshot file not found.")
+
             return False
 
         return True
