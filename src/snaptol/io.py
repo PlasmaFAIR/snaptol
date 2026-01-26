@@ -8,7 +8,10 @@ import pytest
 from numpy import ndarray
 
 CACHE_KEY = "snaptol"
+CACHE_STASH_KEY = pytest.StashKey[list[str]]()
 DIFFS_STASH_KEY = pytest.StashKey[list["SnapshotDiff"]]()
+DELETED_STASH_KEY = pytest.StashKey[list[Path]]()
+DELETABLE_STASH_KEY = pytest.StashKey[list[Path]]()
 
 SENTINEL = object()
 
@@ -100,10 +103,32 @@ def _json_fallback(value: Any) -> Any:
 
 
 def _get_cache(cache: pytest.Cache, cache_key: str = CACHE_KEY) -> dict:
+    """
+    Gets the snaptol cache from the pytest cache object. Returns an empty dictionary if no cache exists.
+
+    Parameters
+    ----------
+    cache
+        The pytest cache object used to store and retrieve test data.
+    cache_key
+        The key under which the snaptol cache is stored in the pytest cache.
+    """
     return cache.get(cache_key, {}) or {}
 
 
 def _set_cache(cache: pytest.Cache, data: dict, cache_key: str = CACHE_KEY) -> None:
+    """
+    Sets the snaptol cache in the pytest cache object.
+
+    Parameters
+    ----------
+    cache
+        The pytest cache object used to store and retrieve test data.
+    data
+        The data to be stored in the snaptol cache.
+    cache_key
+        The key under which the snaptol cache is to be stored in the pytest cache.
+    """
     cache.set(cache_key, data)
 
 

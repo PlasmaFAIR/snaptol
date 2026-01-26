@@ -3,6 +3,9 @@ from pathlib import Path
 import pytest
 
 from .io import (
+    CACHE_STASH_KEY,
+    DELETABLE_STASH_KEY,
+    DELETED_STASH_KEY,
     DIFFS_STASH_KEY,
     _get_cache,
     _set_cache,
@@ -187,6 +190,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
             to_deselect.append(item)
 
+            # Stash away the node IDs of the tests that were updated from cache.
+            config.stash.setdefault(CACHE_STASH_KEY, []).append(item.nodeid)
+
         if to_deselect:
             config.hook.pytest_deselected(items=to_deselect)
 
@@ -228,9 +234,8 @@ def pytest_sessionfinish(session: pytest.Session):
         The pytest session object containing test execution information.
     """
 
-    # Don't need to clean up files if we are not running a full snapshot update.
-    if not session.config.getoption("--snaptol-update-all"):
-        return
+    snaptol_update = session.config.getoption("--snaptol-update")
+    snaptol_update_all = session.config.getoption("--snaptol-update-all")
 
     # The items (tests) that are in the session are relevant and thus their snapshot files musn't be deleted.
     relevant_snapshot_files = []
@@ -254,7 +259,18 @@ def pytest_sessionfinish(session: pytest.Session):
     for snapshot_dir in snapshot_dirs:
         for path in snapshot_dir.glob("*.json"):
             if path not in relevant_snapshot_files:
-                path.unlink(missing_ok=True)
+                # Delete the snapshotfile if we are in an update mode.
+                if snaptol_update or snaptol_update_all:
+                    path.unlink(missing_ok=True)
+
+                    # Stash away the deleted snapshot file paths for later reporting.
+                    session.config.stash.setdefault(DELETED_STASH_KEY, []).append(path)
+
+                else:
+                    # Otherwise, stash away the file name to alert the user that it could be deleted.
+                    session.config.stash.setdefault(DELETABLE_STASH_KEY, []).append(
+                        path
+                    )
 
 
 def pytest_terminal_summary(
@@ -280,3 +296,30 @@ def pytest_terminal_summary(
             _show_test_diff(
                 terminalreporter, diff.snapshot_file, diff.before, diff.after
             )
+
+    if nodeids_used_cache := config.stash.get(CACHE_STASH_KEY, []):
+        terminalreporter.ensure_newline()
+        terminalreporter.write_line(
+            " Used snaptol cache data to update the following test(s):", bold=True
+        )
+        terminalreporter.write_line(" - " + "\n - ".join(nodeids_used_cache))
+
+    if deleted_snapshot_files := config.stash.get(DELETED_STASH_KEY, []):
+        terminalreporter.ensure_newline()
+        terminalreporter.write_line(
+            " Removed the following snapshot file(s) because they were not used by any test:",
+            bold=True,
+        )
+        terminalreporter.write_line(
+            " - " + "\n - ".join(map(str, deleted_snapshot_files))
+        )
+
+    if deletable_snapshot_files := config.stash.get(DELETABLE_STASH_KEY, []):
+        terminalreporter.ensure_newline()
+        terminalreporter.write_line(
+            " The following snapshot file(s) could be deleted in update mode because they are not used by any test:",
+            bold=True,
+        )
+        terminalreporter.write_line(
+            " - " + "\n - ".join(map(str, deletable_snapshot_files))
+        )
