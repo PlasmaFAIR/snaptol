@@ -219,7 +219,7 @@ def pytest_deselected(items: list[pytest.Item]):
 
     global _deselected_items  # noqa: PLW0603
 
-    _deselected_items = items
+    _deselected_items += items
 
 
 def pytest_sessionfinish(session: pytest.Session):
