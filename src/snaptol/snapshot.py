@@ -40,36 +40,38 @@ def auto_update(method: F) -> F:
 
     @wraps(method)
     def wrapper(snapshot: Snapshot, value: Any, *args, **kwargs):
-        if snapshot.snaptol_update:
-            # Output a diff if there is a difference between value and snapshot file.
-            if snapshot.show_update_diff:
-                try:
-                    method(value, snapshot.expected, *args, **kwargs)
-                except AssertionError:
-                    _store_test_diff(
-                        snapshot.config,
-                        snapshot.snapshot_file,
-                        before=snapshot.expected
-                        if snapshot.snapshot_found
-                        else SENTINEL,
-                        after=value,
-                    )
+        # Do the comparison and store any exceptions for later.
+        if snapshot.snapshot_found:
+            try:
+                method(value, snapshot.expected, *args, **kwargs)
+                success = True
+                caught_exception = None
+            except AssertionError as exc:
+                success = False
+                caught_exception = exc
+        else:
+            success = False
+            caught_exception = FileNotFoundError("Snapshot file not found.")
 
+        # Show a diff if requested and if a difference exists.
+        if snapshot.show_diff and not success:
+            _store_test_diff(
+                snapshot.config,
+                snapshot.snapshot_file,
+                before=snapshot.expected if snapshot.snapshot_found else SENTINEL,
+                after=value,
+            )
+
+        if snapshot.snaptol_update:
             write_snapshot(snapshot.snapshot_file, value)
             _uncache_test(snapshot.cache, snapshot.nodeid)
             return True
 
-        try:
-            if not snapshot.snapshot_found:
-                raise FileNotFoundError("Snapshot file not found.")
-
-            method(value, snapshot.expected, *args, **kwargs)
-
-        except (AssertionError, FileNotFoundError):
+        if not success:
             _cache_failed_test(
                 snapshot.cache, snapshot.nodeid, snapshot.snapshot_file, value
             )
-            raise
+            raise caught_exception from None
 
         return True
 
@@ -84,7 +86,7 @@ class Snapshot:
     snapshot_file: Path
     snaptol_update: bool = False
     snapshot_found: bool = False
-    show_update_diff: bool = False
+    show_diff: bool = False
     rtol: float = DEFAULT_RTOL
     atol: float = DEFAULT_ATOL
     equal_nan: bool = False
@@ -111,7 +113,7 @@ class Snapshot:
         snaptol_update = request.config.getoption(
             "--snaptol-update"
         ) or request.config.getoption("--snaptol-update-all")
-        show_update_diff = request.config.getoption("--snaptol-show-diff")
+        show_diff = request.config.getoption("--snaptol-show-diff")
         cache = request.config.cache
         config = request.config
 
@@ -121,7 +123,7 @@ class Snapshot:
             nodeid=nodeid,
             snapshot_file=snapshot_file,
             snaptol_update=snaptol_update,
-            show_update_diff=show_update_diff,
+            show_diff=show_diff,
             cache=cache,
             config=config,
         )
@@ -135,36 +137,34 @@ class Snapshot:
             self.snapshot_found = False
 
     def __eq__(self, value: Any) -> bool:
-        if self.snaptol_update:
-            # Output a diff if there is a difference between value and snapshot file.
-            if self.show_update_diff and not compare_intelligent(
+        # Do the comparison and store any exceptions for later.
+        if self.snapshot_found:
+            success = compare_intelligent(
                 self.expected, value, self.rtol, self.atol, self.equal_nan
-            ):
-                _store_test_diff(
-                    self.config,
-                    self.snapshot_file,
-                    before=self.expected if self.snapshot_found else SENTINEL,
-                    after=value,
-                )
+            )
+            caught_exception = None
+        else:
+            success = False
+            caught_exception = FileNotFoundError("Snapshot file not found.")
 
+        # Show a diff if requested and if a difference exists.
+        if self.show_diff and not success:
+            _store_test_diff(
+                self.config,
+                self.snapshot_file,
+                before=self.expected if self.snapshot_found else SENTINEL,
+                after=value,
+            )
+
+        if self.snaptol_update:
             write_snapshot(self.snapshot_file, value)
             _uncache_test(self.cache, self.nodeid)
             return True
 
-        success = (
-            compare_intelligent(
-                self.expected, value, self.rtol, self.atol, self.equal_nan
-            )
-            if self.snapshot_found
-            else False
-        )
-
         if not success:
             _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
-
-            if not self.snapshot_found:
-                raise FileNotFoundError("Snapshot file not found.")
-
+            if caught_exception is not None:
+                raise caught_exception from None
             return False
 
         return True
