@@ -9,8 +9,10 @@ from .io import (
     DIFFS_STASH_KEY,
     _get_cache,
     _show_test_diff,
+    _store_test_diff,
     _uncache_test,
     nodeid_to_key,
+    read_snapshot,
     snapshot_filename,
     write_snapshot,
 )
@@ -145,6 +147,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     snaptol_update = config.getoption("--snaptol-update")
     snaptol_update_all = config.getoption("--snaptol-update-all")
     snaptol_use_cache = config.getoption("--snaptol-use-cache")
+    snaptol_show_diff = config.getoption("--snaptol-show-diff")
 
     if not snaptol_update and not snaptol_update_all:
         return
@@ -190,6 +193,13 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             snapshot_file = Path(entry["snapshot_file"])
             data = entry["data"]
 
+            if snaptol_show_diff:
+                _store_test_diff(
+                    config,
+                    snapshot_file,
+                    before=read_snapshot(snapshot_file),
+                    after=data,
+                )
             write_snapshot(snapshot_file, data)
 
             to_deselect.append(item)
