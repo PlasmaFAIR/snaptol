@@ -8,8 +8,9 @@ from .io import (
     DELETED_STASH_KEY,
     DIFFS_STASH_KEY,
     _get_cache,
-    _set_cache,
     _show_test_diff,
+    _uncache_test,
+    nodeid_to_key,
     snapshot_filename,
     write_snapshot,
 )
@@ -153,7 +154,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
     # If normal update then we only update the tests that previously failed.
     if snaptol_update:
-        lastfailed = _get_cache(config.cache, cache_key="cache/lastfailed")
+        lastfailed = _get_cache(config.cache, "cache/lastfailed")
 
         # If none failed last then we don't need to update anything.
         if not lastfailed:
@@ -171,13 +172,16 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         items[:] = to_keep
 
     if snaptol_use_cache:
-        cached = _get_cache(config.cache)
+        all_cache = {
+            item.nodeid: _get_cache(config.cache, nodeid_to_key(item.nodeid))
+            for item in items
+        }
 
         to_keep = []
         to_deselect = []
 
         for item in items:
-            entry = cached.get(item.nodeid, None)
+            entry = all_cache.get(item.nodeid, None)
 
             if entry is None:
                 to_keep.append(item)
@@ -197,9 +201,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             config.hook.pytest_deselected(items=to_deselect)
 
             for nodeid in [item.nodeid for item in to_deselect]:
-                cached.pop(nodeid, None)
-
-            _set_cache(config.cache, cached)
+                _uncache_test(config.cache, nodeid)
 
         items[:] = to_keep
 

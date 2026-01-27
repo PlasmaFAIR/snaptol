@@ -1,5 +1,6 @@
 import dataclasses
 import difflib
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,6 @@ CACHE_STASH_KEY = pytest.StashKey[list[str]]()
 DIFFS_STASH_KEY = pytest.StashKey[list["SnapshotDiff"]]()
 DELETED_STASH_KEY = pytest.StashKey[list[Path]]()
 DELETABLE_STASH_KEY = pytest.StashKey[list[Path]]()
-
 SENTINEL = object()
 
 
@@ -102,7 +102,21 @@ def _json_fallback(value: Any) -> Any:
     return repr(value)
 
 
-def _get_cache(cache: pytest.Cache, cache_key: str = CACHE_KEY) -> dict:
+def nodeid_to_key(nodeid: str) -> str:
+    """
+    Get the unique cache key based on the nodeid.
+
+    Parameters
+    ----------
+    nodeid
+        The node ID of a test.
+    """
+    digest = hashlib.sha1(nodeid.encode("utf-8")).hexdigest()
+
+    return f"{CACHE_KEY}/{digest}"
+
+
+def _get_cache(cache: pytest.Cache, cache_key: str) -> dict:
     """
     Gets the snaptol cache from the pytest cache object. Returns an empty dictionary if no cache exists.
 
@@ -111,14 +125,14 @@ def _get_cache(cache: pytest.Cache, cache_key: str = CACHE_KEY) -> dict:
     cache
         The pytest cache object used to store and retrieve test data.
     cache_key
-        The key under which the snaptol cache is stored in the pytest cache.
+        The unique key used to identify the cache entry.
     """
-    return cache.get(cache_key, {}) or {}
+    return cache.get(cache_key, None)
 
 
-def _set_cache(cache: pytest.Cache, data: dict, cache_key: str = CACHE_KEY) -> None:
+def _set_cache(cache: pytest.Cache, data: Any, cache_key: str) -> None:
     """
-    Sets the snaptol cache in the pytest cache object.
+    Sets the snaptol cache for a test in the pytest cache object.
 
     Parameters
     ----------
@@ -127,7 +141,7 @@ def _set_cache(cache: pytest.Cache, data: dict, cache_key: str = CACHE_KEY) -> N
     data
         The data to be stored in the snaptol cache.
     cache_key
-        The key under which the snaptol cache is to be stored in the pytest cache.
+        The unique key used to identify the cache entry.
     """
     cache.set(cache_key, data)
 
@@ -157,11 +171,9 @@ def _cache_failed_test(
     except (TypeError, OverflowError):
         data = _json_fallback(data)
 
-    cached = cache.get(CACHE_KEY, {})
+    data = {"snapshot_file": str(snapshot_file), "data": data}
 
-    cached[nodeid] = {"snapshot_file": str(snapshot_file), "data": data}
-
-    cache.set(CACHE_KEY, cached)
+    _set_cache(cache, data, nodeid_to_key(nodeid))
 
 
 def _uncache_test(cache: pytest.Cache, nodeid: str):
@@ -177,11 +189,12 @@ def _uncache_test(cache: pytest.Cache, nodeid: str):
         The unique identifier of the test node to be removed from the cache.
     """
 
-    cached = cache.get(CACHE_KEY, {})
-
-    cached.pop(nodeid, None)
-
-    cache.set(CACHE_KEY, cached)
+    # Pytest stores values under <cachedir>/v/<key> - remove the file entirely. If we fail, set cache to nothing.
+    try:
+        path = cache._cachedir / "v" / nodeid_to_key(nodeid)
+        path.unlink(missing_ok=True)
+    except Exception:
+        _set_cache(cache, None, nodeid_to_key(nodeid))
 
 
 def _store_test_diff(

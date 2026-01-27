@@ -1,5 +1,4 @@
 import shutil
-from pathlib import Path
 
 import numpy as np
 
@@ -269,12 +268,10 @@ def test_use_cache(pytester):
     pytester.runpytest_subprocess().assert_outcomes(failed=1)
 
     # Check that the cache was created.
-    cache_file = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
-    assert cache_file.exists()
-    with Path.open(cache_file) as f:
-        cache_lines = f.read()
-
-    assert cache_lines != "{}"
+    cache_dir = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
+    files = [p for p in cache_dir.glob("*") if p.is_file()]
+    assert len(files) == 1
+    cache_file = files[0]
 
     # Update the snapshots using the cache - we should therefore skip doing the test.
     pytester.runpytest_subprocess(
@@ -285,10 +282,7 @@ def test_use_cache(pytester):
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
 
     # Check that the cache was deleted.
-    with Path.open(cache_file) as f:
-        cache_lines = f.read()
-
-    assert cache_lines == "{}"
+    assert not (cache_dir / cache_file).exists()
 
 
 def test_delete_cache(pytester):
@@ -323,11 +317,10 @@ def test_delete_cache(pytester):
     pytester.runpytest_subprocess().assert_outcomes(failed=1)
 
     # Check that the cache was created.
-    cache_file = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
-    assert cache_file.exists()
-    with Path.open(cache_file) as f:
-        cache_lines = f.read()
-    assert cache_lines != "{}"
+    cache_dir = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
+    files = [p for p in cache_dir.glob("*") if p.is_file()]
+    assert len(files) == 1
+    cache_file = files[0]
 
     # Do NOT update the snapshots using the cache.
     pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
@@ -336,10 +329,7 @@ def test_delete_cache(pytester):
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
 
     # Check that the cache was deleted despite not being used.
-    with Path.open(cache_file) as f:
-        cache_lines = f.read()
-
-    assert cache_lines == "{}"
+    assert not (cache_dir / cache_file).exists()
 
 
 def test_show_diff(pytester):
