@@ -62,7 +62,7 @@ def test_something(snaptolshot):
 #### Initial run (or intentional changes)
 
 When creating snapshot tests for the first time, or when the expected result in a test has *intentionally* changed, run,
-```python
+```
 pytest --snaptol-update
 ```
 This writes new snapshots instead of comparing values.
@@ -94,6 +94,17 @@ def test_numpy_allclose(snaptolshot):
 ```
 Where any ```*args``` or ```**kwargs``` are passed directly to the corresponding NumPy function.
 
+### Cache
+
+```snaptol``` provides an optional caching feature that can be used during update runs.
+This is particularly useful for testing suites that call expensive or time-consuming functions.
+
+Results of tests that have failed on the previous run are stored in a cache directory on disk.
+To enable caching, add the following option to an update run,
+```
+pytest --snaptol-update --snaptol-use-cache
+```
+When enabled, cached data is used in place of re-running the test.
 
 
 ## Contributing
