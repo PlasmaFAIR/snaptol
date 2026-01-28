@@ -6,8 +6,7 @@
 snaptol documentation
 =====================
 
-A Python tool for snapshot testing with numerical tolerance on floating point numbers.
-
+.. include:: ../../README.md
 
 .. toctree::
    :maxdepth: 2
