@@ -28,7 +28,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx_autodoc_typehints",
-    "myst_nb",
+    "myst_parser",
 ]
 
 autosummary_generate = True
