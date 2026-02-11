@@ -184,7 +184,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         to_deselect = []
 
         for item in items:
-            entry = all_cache.get(item.nodeid, None)
+            entry = all_cache.get(item.nodeid)
 
             if entry is None:
                 to_keep.append(item)
