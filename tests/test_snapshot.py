@@ -1,8 +1,8 @@
+import shutil
+
 import numpy as np
 
-
-def _get_dir_files(path):
-    return [p.name for d in path.rglob("__snapshots__") for p in d.glob("*.json")]
+from snaptol.io import CACHE_KEY
 
 
 def test_gaussian(snaptolshot):
@@ -14,7 +14,7 @@ def test_gaussian(snaptolshot):
     assert snaptolshot == gaussian
 
     # Don't do any more testing if we are updating the snapshot.
-    if snaptolshot.snapshot_update:
+    if snaptolshot.snaptol_update:
         return
 
     # Normal tests continued.
@@ -35,11 +35,11 @@ def test_update_snapshot(pytester):
     # Assert that the snapshot file is not found.
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(["*Snapshot not found*"])
+    result.stdout.fnmatch_lines(["*Snapshot file not found*"])
 
     # Assert that the snapshot file is created.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
-    assert "test_a.test_a.json" in _get_dir_files(pytester.path)
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
 
     # Assert that the snapshot check passes.
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
@@ -58,10 +58,9 @@ def test_remove_test(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=2)
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert (pytester.path / "__snapshots__" / "test_ab.test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_ab.test_b.json").exists()
 
     # Check the snapshots pass.
     pytester.runpytest_subprocess().assert_outcomes(passed=2)
@@ -75,11 +74,13 @@ def test_remove_test(pytester):
     """
     )
 
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_ab file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
     # Update the snapshots - should delete snapshot file b.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" not in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_ab.test_a.json").exists()
+    assert not (pytester.path / "__snapshots__" / "test_ab.test_b.json").exists()
 
     # Check snapshot a still passes.
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
@@ -98,29 +99,27 @@ def test_keyword(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=2)
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert (pytester.path / "__snapshots__" / "test_ab.test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_ab.test_b.json").exists()
 
     # Check the snapshots pass.
     pytester.runpytest_subprocess().assert_outcomes(passed=2)
 
     # Run the test only on test b.
-    pytester.runpytest_subprocess("-k", "test_b", "--snapshot-update").assert_outcomes(
-        passed=1
-    )
+    pytester.runpytest_subprocess(
+        "-k", "test_b", "--snaptol-update-all"
+    ).assert_outcomes(passed=1)
 
     # Check that test a snapshot was not deleted.
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" in files
+    assert (pytester.path / "__snapshots__" / "test_ab.test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_ab.test_b.json").exists()
 
 
 def test_remove_test_and_keyword(pytester):
     # Create 3 tests.
     pytester.makepyfile(
-        test_ab="""
+        test_abc="""
     import numpy as np
     def test_a(snaptolshot):
         snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
@@ -132,18 +131,17 @@ def test_remove_test_and_keyword(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=3)
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" in files
-    assert "test_ab.test_c.json" in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=3)
+    assert (pytester.path / "__snapshots__" / "test_abc.test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_abc.test_b.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_abc.test_c.json").exists()
 
     # Check the snapshots pass.
     pytester.runpytest_subprocess().assert_outcomes(passed=3)
 
     # Remove test c.
     pytester.makepyfile(
-        test_ab="""
+        test_abc="""
     import numpy as np
     def test_a(snaptolshot):
         snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
@@ -152,16 +150,18 @@ def test_remove_test_and_keyword(pytester):
     """
     )
 
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_ab file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
     # Run the test only on test b.
-    pytester.runpytest_subprocess("-k", "test_b", "--snapshot-update").assert_outcomes(
-        passed=1
-    )
+    pytester.runpytest_subprocess(
+        "-k", "test_b", "--snaptol-update-all"
+    ).assert_outcomes(passed=1)
 
     # Check that test a was not deleted.
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
-    assert "test_ab.test_b.json" in files
-    assert "test_ab.test_c.json" not in files
+    assert (pytester.path / "__snapshots__" / "test_abc.test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_abc.test_b.json").exists()
+    assert not (pytester.path / "__snapshots__" / "test_abc.test_c.json").exists()
 
 
 def test_remove_fixture(pytester):
@@ -174,9 +174,8 @@ def test_remove_fixture(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
-    files = _get_dir_files(pytester.path)
-    assert "test_a.test_a.json" in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
 
     # Check the snapshots pass.
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
@@ -190,17 +189,19 @@ def test_remove_fixture(pytester):
     """
     )
 
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
     # Update the snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
 
     # Check that test a snapshot was deleted.
-    files = _get_dir_files(pytester.path)
-    assert "test_a.test_a.json" not in files
+    assert not (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
 
 
 def test_skip(pytester):
     pytester.makepyfile(
-        test_ab="""
+        test_a="""
     import numpy as np
     def test_a(snaptolshot):
         snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
@@ -208,16 +209,15 @@ def test_skip(pytester):
     )
 
     # Create snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(passed=1)
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
 
     # Check the snapshots pass.
     pytester.runpytest_subprocess().assert_outcomes(passed=1)
 
     # Keep the test but skip it.
     pytester.makepyfile(
-        test_ab="""
+        test_a="""
     import numpy as np
     import pytest
     @pytest.mark.skip
@@ -226,9 +226,156 @@ def test_skip(pytester):
     """
     )
 
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_ab file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
     # Update the snapshots.
-    pytester.runpytest_subprocess("--snapshot-update").assert_outcomes(skipped=1)
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(skipped=1)
 
     # Check that test a snapshot was not deleted.
-    files = _get_dir_files(pytester.path)
-    assert "test_ab.test_a.json" in files
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
+
+
+def test_use_cache(pytester):
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([1, 2, 3], dtype=float))
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Change the value.
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([4, 5, 6], dtype=float))
+    """
+    )
+
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Allow the test to fail.
+    pytester.runpytest_subprocess().assert_outcomes(failed=1)
+
+    # Check that the cache was created.
+    cache_dir = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
+    files = [p for p in cache_dir.glob("*") if p.is_file()]
+    assert len(files) == 1
+    cache_file = files[0]
+
+    # Update the snapshots using the cache - we should therefore skip doing the test.
+    pytester.runpytest_subprocess(
+        "--snaptol-update", "--snaptol-use-cache"
+    ).assert_outcomes(deselected=1)
+
+    # Check the test now passes.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Check that the cache was deleted.
+    assert not (cache_dir / cache_file).exists()
+
+
+def test_delete_cache(pytester):
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([7, 8, 9], dtype=float))
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Change the value.
+    pytester.makepyfile(
+        test_a="""
+    import numpy as np
+    def test_a(snaptolshot):
+        snaptolshot.assert_allclose(np.array([10, 11, 12], dtype=float))
+    """
+    )
+
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Allow the test to fail.
+    pytester.runpytest_subprocess().assert_outcomes(failed=1)
+
+    # Check that the cache was created.
+    cache_dir = pytester.path / ".pytest_cache" / "v" / CACHE_KEY
+    files = [p for p in cache_dir.glob("*") if p.is_file()]
+    assert len(files) == 1
+    cache_file = files[0]
+
+    # Do NOT update the snapshots using the cache.
+    pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)
+
+    # Check the test now passes.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Check that the cache was deleted despite not being used.
+    assert not (cache_dir / cache_file).exists()
+
+
+def test_show_diff(pytester):
+    pytester.makepyfile(
+        test_a="""
+        def test_a(snaptolshot):
+            assert snaptolshot == [1, 3]
+        """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (pytester.path / "__snapshots__" / "test_a.test_a.json").exists()
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=1)
+
+    # Add some values inbetween others.
+    pytester.makepyfile(
+        test_a="""
+        def test_a(snaptolshot):
+            assert snaptolshot == [1, 2, 3]
+        """
+    )
+
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Update the snapshot showing the difference and check it looks OK.
+    result = pytester.runpytest_subprocess(
+        "--snaptol-update-all", "--snaptol-show-diff"
+    )
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(
+        [
+            " -+- snaptol diffs -+-",
+            "--------------------------------------------------------------------------------",
+            " Snapshot: *__snapshots__/test_a.test_a.json",
+            "",
+            "--- before",
+            "+++ after",
+            "@@ * @@",
+            " [",
+            "   1,",
+            "+  2,",
+            "   3",
+        ],
+        consecutive=True,
+    )
