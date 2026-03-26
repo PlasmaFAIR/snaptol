@@ -255,7 +255,9 @@ def pytest_sessionfinish(session: pytest.Session):
 
     # We loop through the session items and items that were deselected (e.g by keyword).
     for item in session.items + _deselected_items:
-        snapshot_file = snapshot_filename(item.originalname, item.path)
+        snapshot_file = snapshot_filename(
+            item.nodeid, test_dir=Path(item.fspath).parent
+        )
         snapshot_dirs.add(snapshot_file.parent)
 
         if not snapshot_file.exists():

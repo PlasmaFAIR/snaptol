@@ -16,20 +16,33 @@ DELETABLE_STASH_KEY = pytest.StashKey[list[Path]]()
 SENTINEL = object()
 
 
-def snapshot_filename(test_name: str, test_file: Path) -> Path:
+def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
     """
-    Generates a snapshot filename based on the test name and file path. Returns a Path object
+    Generates a snapshot filename based on the test nodeid. Returns a Path object
     with a '.json' extension.
 
     Parameters
     ----------
-    test_name
-        The name of the test for which the snapshot is being created.
-    test_file
-        The path to the test file containing the test.
+    nodeid
+        The nodeid of the test.
+    test_dir
+        The directory where the test lives.
     """
 
-    return test_file.parent / "__snapshots__" / f"{test_file.stem}.{test_name}.json"
+    return snapshot_directory(test_dir) / f"{Path(nodeid).name}.json"
+
+
+def snapshot_directory(test_dir: Path) -> Path:
+    """
+    Generates the directory where snapshot files will be stored. Returns a Path object.
+
+    Parameters
+    ----------
+    test_dir
+        The directory where the test lives.
+    """
+
+    return test_dir / "__snapshots__"
 
 
 def json_dump(*args, **kwargs) -> str:

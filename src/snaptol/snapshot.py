@@ -16,6 +16,7 @@ from .io import (
     _store_test_diff,
     _uncache_test,
     read_snapshot,
+    snapshot_directory,
     snapshot_filename,
     write_snapshot,
 )
@@ -80,10 +81,9 @@ def auto_update(method: F) -> F:
 
 @dataclasses.dataclass
 class Snapshot:
-    test_name: str
-    test_file: Path
     nodeid: str
     snapshot_file: Path
+    snapshot_dir: Path
     snaptol_update: bool = False
     snapshot_found: bool = False
     show_diff: bool = False
@@ -106,10 +106,11 @@ class Snapshot:
             The pytest request fixture containing test information.
         """
 
-        test_name = request.node.name
-        test_file = Path(request.fspath)
         nodeid = request.node.nodeid
-        snapshot_file = snapshot_filename(test_name, test_file)
+        snapshot_file = snapshot_filename(
+            request.node.nodeid, test_dir=Path(request.fspath).parent
+        )
+        snapshot_dir = snapshot_directory(test_dir=Path(request.fspath).parent)
         snaptol_update = request.config.getoption(
             "--snaptol-update"
         ) or request.config.getoption("--snaptol-update-all")
@@ -118,10 +119,9 @@ class Snapshot:
         config = request.config
 
         return cls(
-            test_name=test_name,
-            test_file=test_file,
             nodeid=nodeid,
             snapshot_file=snapshot_file,
+            snapshot_dir=snapshot_dir,
             snaptol_update=snaptol_update,
             show_diff=show_diff,
             cache=cache,
@@ -170,7 +170,7 @@ class Snapshot:
         return True
 
     def __hash__(self):
-        return hash((self.test_file, self.test_name))
+        return hash(self.nodeid)
 
     def __call__(
         self, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
