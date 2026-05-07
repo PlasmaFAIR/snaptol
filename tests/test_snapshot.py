@@ -400,3 +400,44 @@ def test_parameterise(pytester):
     assert (pytester.path / "__snapshots__" / "test_a.py__test_a[1].json").exists()
     assert (pytester.path / "__snapshots__" / "test_a.py__test_a[a].json").exists()
     assert (pytester.path / "__snapshots__" / "test_a.py__test_a[True].json").exists()
+
+
+def test_compare_different_types(pytester):
+    # Create a test for strings.
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    def test_a(snaptolshot):
+        assert snaptolshot == np.array(['h', 'i'], dtype='<U1')
+    def test_b(snaptolshot):
+        assert snaptolshot.assert_allclose(np.array(['h', 'i'], dtype='<U1'))
+    """
+    )
+
+    # Create snapshots.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert (pytester.path / "__snapshots__" / "test_ab.py__test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_ab.py__test_b.json").exists()
+
+    # Rewrite the test for floats - the comparison will fail.
+    pytester.makepyfile(
+        test_ab="""
+    import numpy as np
+    def test_a(snaptolshot):
+        assert snaptolshot == np.array([0.0, 1.0], dtype='float64')
+    def test_b(snaptolshot):
+        assert snaptolshot.assert_allclose(np.array([0.0, 1.0], dtype='float64'))
+    """
+    )
+
+    # Remove the cache to absolutely ensure Python runs on the overwritten test_a file and not the original.
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Normal mode -> should fail as we have a type incompatibility.
+    pytester.runpytest_subprocess().assert_outcomes(failed=2)
+
+    # Update mode -> should pass despite the type incompatibility.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+
+    # Normal mode -> should now pass as there should no longer be a type incompatibility.
+    pytester.runpytest_subprocess().assert_outcomes(passed=2)

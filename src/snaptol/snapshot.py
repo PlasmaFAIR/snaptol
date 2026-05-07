@@ -42,20 +42,32 @@ def auto_update(method: F) -> F:
     @wraps(method)
     def wrapper(snapshot: Snapshot, value: Any, *args, **kwargs):
         # Do the comparison and store any exceptions for later.
+        comparison_matched = False
+        caught_exception = None
+        problem_found = False
+
         if snapshot.snapshot_found:
             try:
                 method(value, snapshot.expected, *args, **kwargs)
-                success = True
-                caught_exception = None
+                comparison_matched = True
             except AssertionError as exc:
-                success = False
+                # The comparison has not matched, this is only a problem if we are NOT in update mode.
                 caught_exception = exc
-        else:
-            success = False
+                problem_found = not snapshot.snaptol_update
+            except TypeError as exc:
+                caught_exception = exc
+                problem_found = not snapshot.snaptol_update
+        elif not snapshot.snaptol_update:
+            # If we are in update mode, we don't care that the snapshot is missing.
             caught_exception = FileNotFoundError("Snapshot file not found.")
+            problem_found = True
+
+        if snapshot.snaptol_update:
+            write_snapshot(snapshot.snapshot_file, value)
+            _uncache_test(snapshot.cache, snapshot.nodeid)
 
         # Show a diff if requested and if a difference exists.
-        if snapshot.show_diff and not success:
+        if snapshot.show_diff and not comparison_matched:
             _store_test_diff(
                 snapshot.config,
                 snapshot.snapshot_file,
@@ -63,12 +75,7 @@ def auto_update(method: F) -> F:
                 after=value,
             )
 
-        if snapshot.snaptol_update:
-            write_snapshot(snapshot.snapshot_file, value)
-            _uncache_test(snapshot.cache, snapshot.nodeid)
-            return True
-
-        if not success:
+        if problem_found:
             _cache_failed_test(
                 snapshot.cache, snapshot.nodeid, snapshot.snapshot_file, value
             )
@@ -138,17 +145,32 @@ class Snapshot:
 
     def __eq__(self, value: Any) -> bool:
         # Do the comparison and store any exceptions for later.
+        comparison_matched = False
+        caught_exception = None
+        problem_found = False
+
         if self.snapshot_found:
-            success = compare_intelligent(
-                self.expected, value, self.rtol, self.atol, self.equal_nan
-            )
-            caught_exception = None
-        else:
-            success = False
+            try:
+                comparison_matched = compare_intelligent(
+                    value, self.expected, self.rtol, self.atol, self.equal_nan
+                )
+                # If the comparison has not matched, this is only a problem if we are NOT in update mode.
+                if not comparison_matched:
+                    problem_found = not self.snaptol_update
+            except TypeError as exc:
+                caught_exception = exc
+                problem_found = not self.snaptol_update
+        elif not self.snaptol_update:
+            # If we are in update mode, we don't care that the snapshot is missing.
             caught_exception = FileNotFoundError("Snapshot file not found.")
+            problem_found = True
+
+        if self.snaptol_update:
+            write_snapshot(self.snapshot_file, value)
+            _uncache_test(self.cache, self.nodeid)
 
         # Show a diff if requested and if a difference exists.
-        if self.show_diff and not success:
+        if self.show_diff and not comparison_matched:
             _store_test_diff(
                 self.config,
                 self.snapshot_file,
@@ -156,12 +178,7 @@ class Snapshot:
                 after=value,
             )
 
-        if self.snaptol_update:
-            write_snapshot(self.snapshot_file, value)
-            _uncache_test(self.cache, self.nodeid)
-            return True
-
-        if not success:
+        if problem_found:
             _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
             if caught_exception is not None:
                 raise caught_exception from None
