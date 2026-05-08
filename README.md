@@ -40,7 +40,8 @@ def test_something(snaptolshot):
     result = compute_something()
     assert snaptolshot == result
 ```
-When `pytest` runs, it will compare the result to the snapshot stored in file.
+When `pytest` runs, it will compare the result to the snapshot stored in file. Note that, on first passes, this will
+fail as the snapshot file does not exist. A `--snaptol-update` pass will need to be run, which is explained below.
 
 ### Using numerical tolerance
 You can specify tolerances directly,
@@ -77,12 +78,12 @@ There should exist only one snapshot comparison per test. If the setup data is n
 
 ```snaptol``` is able to snapshot NumPy arrays and also integrates directly with the following testing utilities,
 
-- assert_allclose
-- assert_array_almost_equal_nulp
-- assert_array_max_ulp
-- assert_array_equal
-- assert_equal
-- assert_string_equal
+- [`assert_allclose`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_allclose.html)
+- [`assert_array_almost_equal_nulp`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_almost_equal_nulp.html)
+- [`assert_array_max_ulp`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_max_ulp.html)
+- [`assert_array_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_equal.html)
+- [`assert_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_equal.html)
+- [`assert_string_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_string_equal.html)
 
 For example,
 ```python
@@ -90,9 +91,10 @@ import numpy as np
 
 def test_numpy_allclose(snaptolshot):
     result = np.arange(100, dtype=float)
-    snaptolshot.assert_allclose(result)
+    snaptolshot.assert_allclose(result, rtol=1e-05, atol=1e-08)
 ```
-Where any ```*args``` or ```**kwargs``` are passed directly to the corresponding NumPy function.
+Where any ```*args``` or ```**kwargs``` are passed directly to the corresponding NumPy function. The defaults of
+parameters are set to match the default values of the corresponding NumPy function.
 
 ### Cache
 
