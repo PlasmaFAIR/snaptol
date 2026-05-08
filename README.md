@@ -40,7 +40,8 @@ def test_something(snaptolshot):
     result = compute_something()
     assert snaptolshot == result
 ```
-When `pytest` runs, it will compare the result to the snapshot stored in file.
+When `pytest` runs, it will compare the result to the snapshot stored in file. Note that, on first passes, this will
+fail as the snapshot file does not exist. A `--snaptol-update` pass will need to be run, which is explained below.
 
 ### Using numerical tolerance
 You can specify tolerances directly,
