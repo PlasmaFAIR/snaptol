@@ -91,9 +91,10 @@ import numpy as np
 
 def test_numpy_allclose(snaptolshot):
     result = np.arange(100, dtype=float)
-    snaptolshot.assert_allclose(result)
+    snaptolshot.assert_allclose(result, rtol=1e-05, atol=1e-08)
 ```
-Where any ```*args``` or ```**kwargs``` are passed directly to the corresponding NumPy function.
+Where any ```*args``` or ```**kwargs``` are passed directly to the corresponding NumPy function. The defaults of
+parameters are set to match the default values of the corresponding NumPy function.
 
 ### Cache
 
