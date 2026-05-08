@@ -49,14 +49,10 @@ def compare_intelligent(  # noqa: PLR0911, PLR0912
         Whether to consider NaN values equal to each other, by default False
     """
 
-    if isinstance(actual, float) or isinstance(expected, float):
+    if isinstance(actual, complex | float | int) and isinstance(
+        expected, complex | float | int
+    ):
         return np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=equal_nan)
-
-    if isinstance(actual, int) and isinstance(expected, int):
-        return actual == expected
-
-    if isinstance(actual, complex) and isinstance(expected, complex):
-        return actual == expected
 
     if isinstance(actual, str) and isinstance(expected, str):
         return actual == expected
