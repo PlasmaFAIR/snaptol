@@ -29,7 +29,7 @@ def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
         The directory where the test lives.
     """
 
-    return snapshot_directory(test_dir) / f"{Path(nodeid).name}.json"
+    return snapshot_directory(test_dir) / f"{Path(nodeid.replace(':', '_')).name}.json"
 
 
 def snapshot_directory(test_dir: Path) -> Path:
