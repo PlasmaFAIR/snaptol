@@ -78,12 +78,12 @@ There should exist only one snapshot comparison per test. If the setup data is n
 
 ```snaptol``` is able to snapshot NumPy arrays and also integrates directly with the following testing utilities,
 
-- assert_allclose
-- assert_array_almost_equal_nulp
-- assert_array_max_ulp
-- assert_array_equal
-- assert_equal
-- assert_string_equal
+- [`assert_allclose`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_allclose.html)
+- [`assert_array_almost_equal_nulp`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_almost_equal_nulp.html)
+- [`assert_array_max_ulp`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_max_ulp.html)
+- [`assert_array_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_array_equal.html)
+- [`assert_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_equal.html)
+- [`assert_string_equal`](https://numpy.org/doc/stable/reference/generated/numpy.testing.assert_string_equal.html)
 
 For example,
 ```python
