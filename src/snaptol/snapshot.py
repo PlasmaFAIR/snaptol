@@ -41,6 +41,7 @@ def auto_update(method: F) -> F:
 
     @wraps(method)
     def wrapper(snapshot: Snapshot, value: Any, *args, **kwargs):
+        __tracebackhide__ = True  # Hide traceback for py.test
         # Do the comparison and store any exceptions for later.
         comparison_matched = False
         caught_exception = None
@@ -144,6 +145,7 @@ class Snapshot:
             self.snapshot_found = False
 
     def __eq__(self, value: Any) -> bool:
+        __tracebackhide__ = True  # Hide traceback for py.test
         # Do the comparison and store any exceptions for later.
         comparison_matched = False
         caught_exception = None
