@@ -219,6 +219,9 @@ class Snapshot:
 
         return self.match(*args, **kwargs)
 
+    def __repr__(self):
+        return f"Snapshot({self.expected})"
+
     assert_allclose = auto_update(npt.assert_allclose)
     assert_array_almost_equal_nulp = auto_update(npt.assert_array_almost_equal_nulp)
     assert_array_max_ulp = auto_update(npt.assert_array_max_ulp)
