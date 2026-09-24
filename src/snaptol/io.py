@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
-from numpy import ndarray
 
 CACHE_KEY = "snaptol"
 CACHE_STASH_KEY = pytest.StashKey[list[str]]()
@@ -14,6 +14,210 @@ DIFFS_STASH_KEY = pytest.StashKey[list["SnapshotDiff"]]()
 DELETED_STASH_KEY = pytest.StashKey[list[Path]]()
 DELETABLE_STASH_KEY = pytest.StashKey[list[Path]]()
 SENTINEL = object()
+
+COMPLEX128_VIEW_DTYPE = np.dtype([("real", np.float64), ("imag", np.float64)])
+COMPLEX64_VIEW_DTYPE = np.dtype([("real", np.float32), ("imag", np.float32)])
+
+
+def format_compact(json_str: str, max_line_len: int = 90) -> str:
+    """Convert a JSON string in Python's indented format to a more compact one.
+
+    Try to keep lists on one line, wrapping at `max_line_len`, everything else
+    remains newline separated:
+
+    Before:
+    ```json
+    {
+      "a": [
+        1,
+        2,
+        3
+      ],
+      "b": [
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          8,
+          9
+        ]
+      ]
+    }
+    ```
+
+    After:
+    ```json
+    {
+      "a": [1, 2, 3],
+      "b": [
+        [4, 5, 6],
+        [7, 8, 9]
+      ]
+    }
+    ```
+
+    """
+
+    def _iter(o):
+        depth = 0
+        in_list = False
+        just_eaten = False
+        eaten_count = 0
+        line_length = 0
+        current_list_indent = ""
+
+        for ch in o:
+            match ch:
+                case "{" if in_list and just_eaten:
+                    # Dict inside a list: stop eating new lines and add one back.
+                    # This is dumb but it works.
+                    in_list = False
+                    depth += 1
+                    indent = (eaten_count - 1) * "  " + "{"
+                    line_length = len(indent)
+                    yield f"\n{indent}"
+                case "{":
+                    depth += 1
+                    yield ch
+                case "[":
+                    # Nested list, but we can't work this out till we've already
+                    # consumed the newline, so add it back
+                    current_list_indent = depth * "  "
+                    if depth > 0 and just_eaten:
+                        yield f"\n{current_list_indent}"
+                    in_list = True
+                    depth += 1
+                    yield ch
+                case "]" | "}":
+                    in_list = False
+                    depth -= 1
+                    yield ch
+                case "\n" if in_list:
+                    # Skip any newlines inside lists, along with all the indent
+                    # whitespace
+                    just_eaten = True
+                    continue
+                case " " if just_eaten:
+                    eaten_count += 1
+                    continue
+                case "," if in_list and line_length > max_line_len:
+                    # Wrap line
+                    line_length = 0
+                    yield f",\n{current_list_indent} "
+                case "," if in_list:
+                    # We'll now need to add some whitespace back as a separator
+                    line_length += 2
+                    yield ch + " "
+                case "\n":
+                    just_eaten = False
+                    line_length = 0
+                    yield ch
+                case _:
+                    just_eaten = False
+                    eaten_count = 0
+                    line_length += 1
+                    yield ch
+
+    return "".join(list(_iter(json_str)))
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder that can handle numpy objects.
+
+    Numpy arrays are written as JSON objects with some metadata for their dtype
+    and shape.
+
+    Complex numbers are zero-cost converted to an array of two elements first.
+
+    The final JSON string is formatted to try and condense arrays.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def default(self, o):
+        def numpy_to_dict(data, dtype):
+            # We may need to keep track of more info here, such as C or F
+            # ordering
+            return {
+                "__numpy__": True,
+                "dtype": dtype,
+                "data": data.tolist(),
+                "shape": data.shape,
+            }
+
+        match o:
+            case np.ndarray() | np.number():
+                # For complex numbers, we need to view as a 2-element struct,
+                # which should be cheap/free. This will then be written as a
+                # list, which we'll need to convert back
+                if o.dtype == "c8":
+                    data = o.view(COMPLEX64_VIEW_DTYPE)
+                elif o.dtype == "c16":
+                    data = o.view(COMPLEX128_VIEW_DTYPE)
+                else:
+                    data = o
+
+                return numpy_to_dict(data, dtype=np.lib.format.dtype_to_descr(o.dtype))
+            case complex():
+                # This is a Python native complex, which is always a double
+                view = np.complex128(o).view(COMPLEX128_VIEW_DTYPE)
+                return numpy_to_dict(view, dtype="c16")
+            case _:
+                pass
+
+        return super().default(o)
+
+    def encode(self, o):
+        # We don't really have much control over the low-level formatting, so we
+        return format_compact(super().encode(o))
+
+
+class NumpyDecoder(json.JSONDecoder):
+    """Custom JSON decoder for `NumpyEncoder` encoded JSON strings."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, object_hook=self.object_hook)
+
+    def object_hook(self, dct):
+        if "__numpy__" in dct:
+            dtype = dct["dtype"]
+            view_type = None
+            match dtype:
+                case "c8" | "<c8" | ">c8" | "=c8":
+                    base_dtype = np.float32
+                    view_type = np.complex64
+                case "c16" | "<c16" | ">c16" | "=c16":
+                    base_dtype = np.float64
+                    view_type = np.complex128
+                case list():
+                    # Numpy requires list of 2- or 3-tuple NOT a list, JSON only
+                    # has lists
+                    base_dtype = np.dtype([tuple(field) for field in dtype])
+                case _:
+                    base_dtype = dtype
+
+            # This is a cast: json will read everything back as `float`, so we
+            # need to know the base type otherwise any view will be wrong
+            data = np.array(dct["data"], dtype=base_dtype)
+
+            if view_type is not None:
+                # Cheap/free cast back to a complex type
+                data = data.view(view_type)
+
+            if dct["shape"] == []:
+                # Convert to scalar -- can't just use `.item()`, because that
+                # gives a Python scalar, which might be the wrong dtype, so
+                # reshape to a 0D array, then scalar-index
+                return data.reshape([])[()]
+
+            # We might have an extra useless dimension, especially for complex
+            return data.reshape(dct["shape"])
+
+        return dct
 
 
 def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
@@ -60,7 +264,7 @@ def json_dump(*args, **kwargs) -> str:
         Keyword arguments to be passed to `json.dumps`.
     """
 
-    return json.dumps(*args, indent=2, default=_json_fallback, **kwargs)
+    return json.dumps(*args, indent=2, cls=NumpyEncoder, **kwargs)
 
 
 def write_snapshot(snapshot_file: Path, value: Any):
@@ -91,28 +295,14 @@ def read_snapshot(snapshot_file: Path) -> Any:
         The path to the snapshot file to be read.
     """
 
-    return json.loads(snapshot_file.read_text(encoding="utf-8"))
+    return deserialise_snapshot(snapshot_file.read_text(encoding="utf-8"))
 
 
-def _json_fallback(value: Any) -> Any:
+def deserialise_snapshot(data: str) -> Any:
     """
-    A fallback function for JSON serialisation that handles special data types.
-    Converts numpy arrays to lists and other non-serialisable objects to their string representation.
-    Returns the serialised value.
-
-    Parameters
-    ----------
-    value
-        The value to be serialised to JSON format.
+    Deserialise a snapshot from a JSON string
     """
-
-    try:
-        if isinstance(value, ndarray):
-            return value.tolist()
-    except Exception:
-        pass
-
-    return repr(value)
+    return json.loads(data, cls=NumpyDecoder)
 
 
 def nodeid_to_key(nodeid: str) -> str:
@@ -179,12 +369,10 @@ def _cache_failed_test(
         The snapshot data to be cached, which will be serialised if possible.
     """
 
-    try:
-        json.dumps(data)
-    except (TypeError, OverflowError):
-        data = _json_fallback(data)
-
-    data = {"snapshot_file": str(snapshot_file), "data": data}
+    data = {
+        "snapshot_file": str(snapshot_file),
+        "data": json.dumps(data, cls=NumpyEncoder),
+    }
 
     _set_cache(cache, data, nodeid_to_key(nodeid))
 
