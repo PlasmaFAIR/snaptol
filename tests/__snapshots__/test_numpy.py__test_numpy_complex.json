@@ -1,0 +1,38 @@
+{
+  "complex": {
+    "__numpy__": true,
+    "dtype": "c16",
+    "data": [1.0, 2.0],
+    "shape": []
+  },
+  "np.complex64": {
+    "__numpy__": true,
+    "dtype": "<c8",
+    "data": [3.0, 4.0],
+    "shape": []
+  },
+  "array of complex": {
+    "__numpy__": true,
+    "dtype": "<c16",
+    "data": [
+      [
+        [5.0, 6.0],
+        [7.0, 8.0]
+      ],
+      [
+        [-1.0, -1.0],
+        [-2.0, -2.0]
+      ]
+    ],
+    "shape": [2, 2]
+  },
+  "array of complex64": {
+    "__numpy__": true,
+    "dtype": "<c8",
+    "data": [
+      [9.0, 10.0],
+      [11.0, 12.0]
+    ],
+    "shape": [2]
+  }
+}

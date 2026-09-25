@@ -372,10 +372,8 @@ def test_show_diff(pytester):
             "--- before",
             "+++ after",
             "@@ * @@",
-            " [",
-            "   1,",
-            "+  2,",
-            "   3",
+            "-[1, 3]",
+            "+[1, 2, 3]",
         ],
         consecutive=True,
     )
