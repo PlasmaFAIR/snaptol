@@ -16,7 +16,6 @@ from .io import (
     deserialise_snapshot,
     nodeid_to_key,
     read_snapshot,
-    snapshot_filename,
     write_snapshot,
 )
 from .snapshot import Snapshot
