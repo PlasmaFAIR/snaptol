@@ -1,3 +1,5 @@
+from typing import Any
+from snaptol.session import SnaptolSession
 from pathlib import Path
 
 import pytest
@@ -19,7 +21,8 @@ from .io import (
 )
 from .snapshot import Snapshot
 
-_deselected_items = []
+# Global so we can have access in pytest hooks that don't take the session
+_snaptol: SnaptolSession | None = None
 
 
 @pytest.fixture
@@ -127,7 +130,8 @@ def pytest_configure(config: pytest.Config):
         raise ValueError("Cannot use --snaptol-update-all with --last-failed or --lf")
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]):
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config: Any, items: list[pytest.Item]):
     """
     Modifies the collection of test items based on snapshot update options.
 
@@ -144,6 +148,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items
         List of collected pytest test items that can be modified in-place.
     """
+
+    config._snaptol.collect_items(items)
 
     snaptol_update = config.getoption("--snaptol-update")
     snaptol_update_all = config.getoption("--snaptol-update-all")
@@ -228,12 +234,21 @@ def pytest_deselected(items: list[pytest.Item]):
         List of pytest test items that were deselected during test collection.
     """
 
-    global _deselected_items  # noqa: PLW0603
+    if _snaptol:
+        _snaptol.add_deselected(items)
 
-    _deselected_items += items
+
+def pytest_sessionstart(session: Any) -> None:
+    """
+    Initialize snapshot session before tests are collected and ran.
+    https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionstart
+    """
+    session.config._snaptol = SnaptolSession(pytest_session=session)
+    global _snaptol  # noqa: PLW0603
+    _snaptol = session.config._snaptol
 
 
-def pytest_sessionfinish(session: pytest.Session):
+def pytest_sessionfinish(session: Any):
     """
     Runs after all tests are completed. When the ``--snaptol-update`` option
     is enabled, it scans through all test items (including deselected ones) to
@@ -247,45 +262,7 @@ def pytest_sessionfinish(session: pytest.Session):
         The pytest session object containing test execution information.
     """
 
-    snaptol_update = session.config.getoption("--snaptol-update")
-    snaptol_update_all = session.config.getoption("--snaptol-update-all")
-
-    # The items (tests) that are in the session are relevant and thus their snapshot files musn't be deleted.
-    relevant_snapshot_files = []
-    snapshot_dirs = set()
-
-    # We loop through the session items and items that were deselected (e.g by keyword).
-    for item in session.items + _deselected_items:
-        snapshot_file = snapshot_filename(
-            item.nodeid, test_dir=Path(item.fspath).parent
-        )
-        snapshot_dirs.add(snapshot_file.parent)
-
-        if not snapshot_file.exists():
-            continue
-
-        # A test may still exist that used to have a snapshot file but no longer does -> if so, it's not relevant.
-        if "snaptolshot" not in item.fixturenames:
-            continue
-
-        relevant_snapshot_files.append(snapshot_file)
-
-    # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
-    for snapshot_dir in snapshot_dirs:
-        for path in snapshot_dir.glob("*.json"):
-            if path not in relevant_snapshot_files:
-                # Delete the snapshotfile if we are in an update mode.
-                if snaptol_update or snaptol_update_all:
-                    path.unlink(missing_ok=True)
-
-                    # Stash away the deleted snapshot file paths for later reporting.
-                    session.config.stash.setdefault(DELETED_STASH_KEY, []).append(path)
-
-                else:
-                    # Otherwise, stash away the file name to alert the user that it could be deleted.
-                    session.config.stash.setdefault(DELETABLE_STASH_KEY, []).append(
-                        path
-                    )
+    session.config._snaptol.finish()
 
 
 def pytest_terminal_summary(
