@@ -229,7 +229,7 @@ class NumpyDecoder(json.JSONDecoder):
         return dct
 
 
-def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
+def snapshot_filename(item: pytest.Item, test_dir: Path) -> Path:
     """
     Generates a snapshot filename based on the test nodeid. Returns a Path object
     with a '.json' extension.
@@ -242,7 +242,8 @@ def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
         The directory where the test lives.
     """
 
-    return snapshot_directory(test_dir) / f"{Path(nodeid.replace(':', '_')).name}.json"
+    dirname = Path(item.path).stem
+    return snapshot_directory(test_dir) / dirname / f"{item.name}.json"
 
 
 def snapshot_directory(test_dir: Path) -> Path:
