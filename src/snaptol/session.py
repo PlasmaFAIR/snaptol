@@ -23,6 +23,7 @@ class ItemStatus(Enum):
 class SnaptolSession:
     pytest_session: pytest.Session
 
+    _snapshots: list[Snapshot] = field(default_factory=list)
     # All the collected test items, keyed by nodeid to preserve collection order
     _collected_items: dict[str, pytest.Item] = field(default_factory=dict)
     _deselected_items: list[pytest.Item] = field(default_factory=list)
@@ -38,6 +39,9 @@ class SnaptolSession:
     def add_deselected(self, items: list[pytest.Item]) -> None:
         for item in self.filter_valid_items(items):
             self._deselected_items.append(item)
+
+    def register_request(self, snapshot: Snapshot):
+        self._snapshots.append(snapshot)
 
     def finish(self):
         config = self.pytest_session.config
@@ -61,11 +65,16 @@ class SnaptolSession:
             if not snapshot_file.exists():
                 continue
 
-            # A test may still exist that used to have a snapshot file but no longer does -> if so, it's not relevant.
+            # A test may still exist that used to have a snapshot file but no
+            # longer does -> if so, it's not relevant.
             if "snaptolshot" not in getattr(item, "fixturenames", ()):
                 continue
 
             relevant_snapshot_files.append(snapshot_file)
+
+        for snapshot in self._snapshots:
+            for result in snapshot._execution_results.values():
+                relevant_snapshot_files.append(result.filename)
 
         # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
         for snapshot_dir in snapshot_dirs:

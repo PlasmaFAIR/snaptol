@@ -1,25 +1,44 @@
 import shutil
 
 import numpy as np
+import pytest
 
 from snaptol.io import CACHE_KEY
 
 
-def test_gaussian(snaptolshot):
+@pytest.fixture
+def gaussian():
     N = 100
+    return np.exp(-(np.linspace(-5.0, 5.0, N) ** 2.0))
 
-    gaussian = np.exp(-(np.linspace(-5.0, 5.0, N) ** 2.0))
 
-    # Normal tests.
+def test_assert(snaptolshot, gaussian):
     assert snaptolshot == gaussian
 
-    # Don't do any more testing if we are updating the snapshot.
-    if snaptolshot.snaptol_update:
-        return
 
-    # Normal tests continued.
+def test_call_assert(snaptolshot, gaussian):
     assert snaptolshot() == gaussian
+
+
+def test_assert_match(snaptolshot, gaussian):
     assert snaptolshot.match(gaussian)
+
+
+def test_multiple_asserts(snaptolshot):
+    assert snaptolshot == 1.1
+    assert snaptolshot == 2.2
+    assert snaptolshot == 3.3
+
+
+def test_multiple_named_asserts(snaptolshot):
+    assert snaptolshot["a"] == 1.1
+    assert snaptolshot["b"] == 2.2
+    assert snaptolshot["c"] == 3.3
+
+
+def test_multiple_named_numpy_asserts(snaptolshot):
+    assert snaptolshot["one"].assert_allclose([1.1, 1.2, 1.3])
+    assert snaptolshot["two"].assert_allclose([2.2, 2.2, 2.3])
 
 
 def test_update_snapshot(pytester):
@@ -35,7 +54,7 @@ def test_update_snapshot(pytester):
     # Assert that the snapshot file is not found.
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(["*Snapshot file not found*"])
+    result.stdout.fnmatch_lines(["*Snapshot file '*' not found*"])
 
     # Assert that the snapshot file is created.
     pytester.runpytest_subprocess("--snaptol-update").assert_outcomes(passed=1)

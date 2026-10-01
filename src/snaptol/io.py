@@ -3,10 +3,13 @@ import difflib
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from .snapshot import SnaptolResult
 
 CACHE_KEY = "snaptol"
 CACHE_STASH_KEY = pytest.StashKey[list[str]]()
@@ -359,9 +362,7 @@ def _set_cache(cache: pytest.Cache, data: Any, cache_key: str) -> None:
     cache.set(cache_key, data)
 
 
-def _cache_failed_test(
-    cache: pytest.Cache, nodeid: str, snapshot_file: Path, data: Any
-):
+def _cache_failed_test(cache: pytest.Cache, result: "SnaptolResult", data: Any):
     """
     Caches the snapshot data from a failed test to enable later regeneration without re-running the test.
     This allows the ``--use-snaptol-cache`` option to update snapshots using cached data.
@@ -380,11 +381,12 @@ def _cache_failed_test(
     """
 
     data = {
-        "snapshot_file": str(snapshot_file),
+        "snapshot_file": str(result.filename),
+        "index": result.index,
         "data": json.dumps(data, cls=NumpyEncoder),
     }
 
-    _set_cache(cache, data, nodeid_to_key(nodeid))
+    _set_cache(cache, data, nodeid_to_key(result.nodeid))
 
 
 def _uncache_test(cache: pytest.Cache, nodeid: str):
