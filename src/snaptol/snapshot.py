@@ -40,49 +40,9 @@ def auto_update(method: F) -> F:
     """
 
     @wraps(method)
-    def wrapper(snapshot: Snapshot, value: Any, *args, **kwargs):
+    def wrapper(self: Snapshot, value: Any, *args, **kwargs):
         __tracebackhide__ = True  # Hide traceback for py.test
-        # Do the comparison and store any exceptions for later.
-        comparison_matched = False
-        caught_exception = None
-        problem_found = False
-
-        if snapshot.snapshot_found:
-            try:
-                method(value, snapshot.expected, *args, **kwargs)
-                comparison_matched = True
-            except AssertionError as exc:
-                # The comparison has not matched, this is only a problem if we are NOT in update mode.
-                caught_exception = exc
-                problem_found = not snapshot.snaptol_update
-            except TypeError as exc:
-                caught_exception = exc
-                problem_found = not snapshot.snaptol_update
-        elif not snapshot.snaptol_update:
-            # If we are in update mode, we don't care that the snapshot is missing.
-            caught_exception = FileNotFoundError("Snapshot file not found.")
-            problem_found = True
-
-        if snapshot.snaptol_update:
-            write_snapshot(snapshot.snapshot_file, value)
-            _uncache_test(snapshot.cache, snapshot.nodeid)
-
-        # Show a diff if requested and if a difference exists.
-        if snapshot.show_diff and not comparison_matched:
-            _store_test_diff(
-                snapshot.config,
-                snapshot.snapshot_file,
-                before=snapshot.expected if snapshot.snapshot_found else SENTINEL,
-                after=value,
-            )
-
-        if problem_found:
-            _cache_failed_test(
-                snapshot.cache, snapshot.nodeid, snapshot.snapshot_file, value
-            )
-            raise caught_exception from None
-
-        return True
+        return self._match_with_method(method, value, *args, **kwargs)
 
     return wrapper
 
@@ -143,7 +103,7 @@ class Snapshot:
             self.expected = None
             self.snapshot_found = False
 
-    def __eq__(self, value: Any) -> bool:
+    def _match_with_method(self, method: F, value: Any, *args, **kwargs) -> bool:
         __tracebackhide__ = True  # Hide traceback for py.test
         # Do the comparison and store any exceptions for later.
         comparison_matched = False
@@ -152,13 +112,16 @@ class Snapshot:
 
         if self.snapshot_found:
             try:
-                comparison_matched = compare_intelligent(
-                    value, self.expected, self.rtol, self.atol, self.equal_nan
-                )
-                # If the comparison has not matched, this is only a problem if we are NOT in update mode.
-                if not comparison_matched:
+                _matched = method(value, self.expected, *args, **kwargs)
+                # If the comparison has not matched, this is only a problem if
+                # we are NOT in update mode.
+                # _matched might be an array (e.g. np.testing.assert_array_max_ulp),
+                # and numpy hates `array == True`, so need identity comparisons here
+                if _matched is True or _matched is None:
+                    comparison_matched = True
+                else:
                     problem_found = not self.snaptol_update
-            except TypeError as exc:
+            except (AssertionError, TypeError) as exc:
                 caught_exception = exc
                 problem_found = not self.snaptol_update
         elif not self.snaptol_update:
@@ -186,6 +149,16 @@ class Snapshot:
             return False
 
         return True
+
+    def __eq__(self, value: Any) -> bool:
+        __tracebackhide__ = True  # Hide traceback for py.test
+        return self._match_with_method(
+            compare_intelligent,
+            value,
+            rtol=self.rtol,
+            atol=self.atol,
+            equal_nan=self.equal_nan,
+        )
 
     def __hash__(self):
         return hash(self.nodeid)
