@@ -15,8 +15,12 @@ DELETED_STASH_KEY = pytest.StashKey[list[Path]]()
 DELETABLE_STASH_KEY = pytest.StashKey[list[Path]]()
 SENTINEL = object()
 
-COMPLEX128_VIEW_DTYPE = np.dtype([("real", np.float64), ("imag", np.float64)])
-COMPLEX64_VIEW_DTYPE = np.dtype([("real", np.float32), ("imag", np.float32)])
+# 32-/64-bit, little-/big-endian views of complex numbers
+COMPLEX128_NATIVE_VIEW_DTYPE = np.dtype([("real", "=f8"), ("imag", "=f8")])
+COMPLEX128_LE_VIEW_DTYPE = np.dtype([("real", "<f8"), ("imag", "<f8")])
+COMPLEX64_LE_VIEW_DTYPE = np.dtype([("real", "<f4"), ("imag", "<f4")])
+COMPLEX128_BE_VIEW_DTYPE = np.dtype([("real", ">f8"), ("imag", ">f8")])
+COMPLEX64_BE_VIEW_DTYPE = np.dtype([("real", ">f4"), ("imag", ">f4")])
 
 
 def format_compact(json_str: str, max_line_len: int = 90) -> str:
@@ -154,17 +158,22 @@ class NumpyEncoder(json.JSONEncoder):
                 # For complex numbers, we need to view as a 2-element struct,
                 # which should be cheap/free. This will then be written as a
                 # list, which we'll need to convert back
-                if o.dtype == "c8":
-                    data = o.view(COMPLEX64_VIEW_DTYPE)
-                elif o.dtype == "c16":
-                    data = o.view(COMPLEX128_VIEW_DTYPE)
-                else:
-                    data = o
+                match o.dtype:
+                    case "<c8":
+                        data = o.view(COMPLEX64_LE_VIEW_DTYPE)
+                    case ">c8":
+                        data = o.view(COMPLEX64_BE_VIEW_DTYPE)
+                    case "<c16":
+                        data = o.view(COMPLEX128_LE_VIEW_DTYPE)
+                    case ">c16":
+                        data = o.view(COMPLEX128_BE_VIEW_DTYPE)
+                    case _:
+                        data = o
 
                 return numpy_to_dict(data, dtype=np.lib.format.dtype_to_descr(o.dtype))
             case complex():
                 # This is a Python native complex, which is always a double
-                view = np.complex128(o).view(COMPLEX128_VIEW_DTYPE)
+                view = np.complex128(o).view(COMPLEX128_NATIVE_VIEW_DTYPE)
                 return numpy_to_dict(view, dtype="c16")
             case _:
                 pass
