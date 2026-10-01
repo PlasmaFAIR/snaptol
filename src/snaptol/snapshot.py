@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import dataclasses
+from dataclasses import dataclass, field, replace
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
@@ -47,8 +47,17 @@ def auto_update(method: F) -> F:
     return wrapper
 
 
-@dataclasses.dataclass
+@dataclass
+class SnaptolResult:
+    nodeid: str
+    index: str | int
+    filename: Path
+    success: bool
+
+
+@dataclass
 class Snapshot:
+    session: "SnaptolSession"
     nodeid: str
     snapshot_file: Path
     snapshot_dir: Path
@@ -58,12 +67,26 @@ class Snapshot:
     rtol: float = DEFAULT_RTOL
     atol: float = DEFAULT_ATOL
     equal_nan: bool = False
-    expected: Any = dataclasses.field(init=False, repr=False)
+    expected: Any = field(init=False, repr=False)
     cache: pytest.Cache = None
     config: pytest.Config = None
 
+    # How many times has this fixture been called/asserted
+    _executions: int = field(init=False, default=0)
+    # Some metadata on the result of each execution
+    _execution_results: dict[str, SnaptolResult] = field(
+        init=False, default_factory=dict
+    )
+    # The current index name
+    _index: str | int | None = None
+    # List of actions to take after each execution
+    _post_execution_actions: list[Callable[..., None]] = field(
+        init=False,
+        default_factory=list,
+    )
+
     @classmethod
-    def from_request(cls, request) -> Snapshot:
+    def from_request(cls, request: pytest.FixtureRequest) -> Snapshot:
         """
         Create a ``Snapshot`` instance from a pytest request object. Returns
         the instansiated ``Snapshot`` object.
@@ -86,6 +109,7 @@ class Snapshot:
         config = request.config
 
         return cls(
+            session=request.session.config._snaptol,  # ty: ignore[unresolved-attribute]
             nodeid=nodeid,
             snapshot_file=snapshot_file,
             snapshot_dir=snapshot_dir,
@@ -96,8 +120,25 @@ class Snapshot:
         )
 
     def __post_init__(self) -> None:
+        self.session.register_request(self)
+
+    @property
+    def index(self) -> str | int:
+        if self._index is not None:
+            return self._index
+        return self._executions
+
+    @property
+    def filename(self):
+        if self.index != 0:
+            filestem = self.snapshot_file.stem
+            return self.snapshot_file.with_stem(f"{filestem}-{self.index}")
+
+        return self.snapshot_file
+
+    def _read_snapshot(self) -> None:
         try:
-            self.expected = read_snapshot(self.snapshot_file)
+            self.expected = read_snapshot(self.filename)
             self.snapshot_found = True
         except FileNotFoundError:
             self.expected = None
@@ -109,6 +150,8 @@ class Snapshot:
         comparison_matched = False
         caught_exception = None
         problem_found = False
+
+        self._read_snapshot()
 
         if self.snapshot_found:
             try:
@@ -126,24 +169,37 @@ class Snapshot:
                 problem_found = not self.snaptol_update
         elif not self.snaptol_update:
             # If we are in update mode, we don't care that the snapshot is missing.
-            caught_exception = FileNotFoundError("Snapshot file not found.")
+            caught_exception = FileNotFoundError(
+                f"Snapshot file '{self.filename}' not found."
+            )
             problem_found = True
 
         if self.snaptol_update:
-            write_snapshot(self.snapshot_file, value)
+            write_snapshot(self.filename, value)
             _uncache_test(self.cache, self.nodeid)
 
         # Show a diff if requested and if a difference exists.
         if self.show_diff and not comparison_matched:
             _store_test_diff(
                 self.config,
-                self.snapshot_file,
+                self.filename,
                 before=self.expected if self.snapshot_found else SENTINEL,
                 after=value,
             )
 
+        # Store result for later checking for unused snapshots
+        result = SnaptolResult(
+            nodeid=self.nodeid,
+            index=self.index,
+            filename=self.filename,
+            success=not problem_found,
+        )
+        self._execution_results[str(self.index)] = result
+        self._executions += 1
+        self._post_execution()
+
         if problem_found:
-            _cache_failed_test(self.cache, self.nodeid, self.snapshot_file, value)
+            _cache_failed_test(self.cache, result, value)
             if caught_exception is not None:
                 raise caught_exception from None
             return False
@@ -164,9 +220,31 @@ class Snapshot:
         return hash(self.nodeid)
 
     def __call__(
-        self, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
+        self,
+        *,
+        rtol: float | None = None,
+        atol: float | None = None,
+        equal_nan: bool | None = None,
+        name: str | int | None = None,
     ) -> Snapshot:
-        return dataclasses.replace(self, rtol=rtol, atol=atol)
+        if rtol is not None:
+            self.__with_prop("rtol", rtol)
+        if atol is not None:
+            self.__with_prop("atol", atol)
+        if equal_nan is not None:
+            self.__with_prop("equal_nan", equal_nan)
+        if name is not None:
+            self.__with_prop("_index", name)
+        return self
+
+    def __getitem__(self, index: str | int) -> Snapshot:
+        self.__with_prop("_index", index)
+        return self
+
+    def __with_prop(self, prop_name: str, prop_value: Any) -> None:
+        _value = getattr(self, prop_name, None)
+        setattr(self, prop_name, prop_value)
+        self._post_execution_actions.append(lambda: setattr(self, prop_name, _value))
 
     def match(
         self, value, *, rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL
@@ -195,6 +273,13 @@ class Snapshot:
 
     def __repr__(self):
         return f"Snapshot({self.expected})"
+
+    def _post_execution(self) -> None:
+        """
+        Restore instance attributes
+        """
+        while self._post_execution_actions:
+            self._post_execution_actions.pop()()
 
     assert_allclose = auto_update(npt.assert_allclose)
     assert_array_almost_equal_nulp = auto_update(npt.assert_array_almost_equal_nulp)
