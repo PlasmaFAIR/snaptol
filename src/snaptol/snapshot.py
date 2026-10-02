@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
@@ -38,7 +40,7 @@ def auto_update(method: F) -> F:
     """
 
     @wraps(method)
-    def wrapper(self: Snapshot, value: Any, *args, **kwargs):
+    def wrapper(self: "Snapshot", value: Any, *args, **kwargs):
         __tracebackhide__ = True  # Hide traceback for py.test
         return self._match_with_method(method, value, *args, **kwargs)
 
