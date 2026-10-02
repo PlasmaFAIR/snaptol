@@ -3,10 +3,13 @@ import difflib
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
+
+if TYPE_CHECKING:
+    from .snapshot import SnaptolResult
 
 CACHE_KEY = "snaptol"
 CACHE_STASH_KEY = pytest.StashKey[list[str]]()
@@ -229,7 +232,7 @@ class NumpyDecoder(json.JSONDecoder):
         return dct
 
 
-def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
+def snapshot_filename(item: pytest.Item, test_dir: Path) -> Path:
     """
     Generates a snapshot filename based on the test nodeid. Returns a Path object
     with a '.json' extension.
@@ -242,7 +245,8 @@ def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
         The directory where the test lives.
     """
 
-    return snapshot_directory(test_dir) / f"{Path(nodeid.replace(':', '_')).name}.json"
+    dirname = Path(item.path).stem
+    return snapshot_directory(test_dir) / dirname / f"{item.name}.json"
 
 
 def snapshot_directory(test_dir: Path) -> Path:
@@ -358,9 +362,7 @@ def _set_cache(cache: pytest.Cache, data: Any, cache_key: str) -> None:
     cache.set(cache_key, data)
 
 
-def _cache_failed_test(
-    cache: pytest.Cache, nodeid: str, snapshot_file: Path, data: Any
-):
+def _cache_failed_test(cache: pytest.Cache, result: "SnaptolResult", data: Any):
     """
     Caches the snapshot data from a failed test to enable later regeneration without re-running the test.
     This allows the ``--use-snaptol-cache`` option to update snapshots using cached data.
@@ -379,11 +381,12 @@ def _cache_failed_test(
     """
 
     data = {
-        "snapshot_file": str(snapshot_file),
+        "snapshot_file": str(result.filename),
+        "index": result.index,
         "data": json.dumps(data, cls=NumpyEncoder),
     }
 
-    _set_cache(cache, data, nodeid_to_key(nodeid))
+    _set_cache(cache, data, nodeid_to_key(result.nodeid))
 
 
 def _uncache_test(cache: pytest.Cache, nodeid: str):
@@ -403,7 +406,7 @@ def _uncache_test(cache: pytest.Cache, nodeid: str):
     try:
         path = cache._cachedir / "v" / nodeid_to_key(nodeid)
         path.unlink(missing_ok=True)
-    except Exception:
+    except (TypeError, FileNotFoundError):
         _set_cache(cache, None, nodeid_to_key(nodeid))
 
 

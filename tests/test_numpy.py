@@ -23,13 +23,13 @@ def test_numpy_allclose(snaptolshot):
     y_low_noise = y + noise(1e-8)
 
     # Should all still be OK.
-    snaptolshot.assert_allclose(y_low_noise, rtol=1e-8, atol=1e-8)
+    snaptolshot[0].assert_allclose(y_low_noise, rtol=1e-8, atol=1e-8)
 
     # Add some BIG random noise.
     y_high_noise = y + noise(1e-7)
 
     with pytest.raises(AssertionError):
-        snaptolshot.assert_allclose(y_high_noise, rtol=1e-8, atol=1e-8)
+        snaptolshot[0].assert_allclose(y_high_noise, rtol=1e-8, atol=1e-8)
 
 
 def test_numpy_array_almost_equal_nulp(snaptolshot):
@@ -44,10 +44,10 @@ def test_numpy_array_almost_equal_nulp(snaptolshot):
     if snaptolshot.snaptol_update:
         return
 
-    snaptolshot.assert_array_almost_equal_nulp(y, nulp=nulp)
+    snaptolshot[0].assert_array_almost_equal_nulp(y, nulp=nulp)
 
     with pytest.raises(AssertionError):
-        snaptolshot.assert_array_almost_equal_nulp(z, nulp=nulp)
+        snaptolshot[0].assert_array_almost_equal_nulp(z, nulp=nulp)
 
 
 def test_numpy_array_max_ulp(snaptolshot):
@@ -64,10 +64,10 @@ def test_numpy_array_max_ulp(snaptolshot):
         y = np.nextafter(y, np.inf)
 
         if nulp <= maxulp:
-            snaptolshot.assert_array_max_ulp(y, maxulp=maxulp)
+            snaptolshot[0].assert_array_max_ulp(y, maxulp=maxulp)
         else:
             with pytest.raises(AssertionError):
-                snaptolshot.assert_array_max_ulp(y, maxulp=maxulp)
+                snaptolshot[0].assert_array_max_ulp(y, maxulp=maxulp)
 
 
 def test_numpy_array_equal(snaptolshot):
@@ -81,7 +81,7 @@ def test_numpy_array_equal(snaptolshot):
     y = np.array([2.0, 20.0, 200.0], dtype=float)
 
     with pytest.raises(AssertionError):
-        snaptolshot.assert_array_equal(y)
+        snaptolshot[0].assert_array_equal(y)
 
 
 def test_numpy_equal(snaptolshot):
@@ -99,7 +99,7 @@ def test_numpy_string_equal(snaptolshot):
         return
 
     with pytest.raises(AssertionError):
-        snaptolshot.assert_string_equal("def")
+        snaptolshot[0].assert_string_equal("def")
 
 
 def test_numpy_float32(snaptolshot):
