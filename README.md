@@ -58,6 +58,28 @@ def test_something(snaptolshot):
     assert snaptolshot.match(rtol=1e-05, atol=1e-08) == result
 ```
 
+### Multiple snapshots per test
+
+Tests can include multiple asserts against the `snaptolshot` fixture, each one
+gets its own separate snapshot file, and can use different tolerances:
+
+```py
+def test_somethings(snaptolshot):
+    result1, result2 = compute_somethings()
+    assert snaptolshot(rtol=1e-5, atol=1e-5) == result1
+    assert snaptolshot(rtol=1e-2, atol=1e-3) == result2
+```
+
+You can give an optional name to the snapshots with `["name"]`:
+
+```py
+def test_somethings(snaptolshot):
+    result1, result2 = compute_somethings()
+    assert snaptolshot["first"] == result1
+    assert snaptolshot["second"].assert_allclose(result2, rtol=1e-2, atol=1e-3)
+```
+
+
 ### Updating snapshots
 
 #### Initial run (or intentional changes)
