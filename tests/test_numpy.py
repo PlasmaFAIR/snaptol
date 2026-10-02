@@ -100,3 +100,20 @@ def test_numpy_string_equal(snaptolshot):
 
     with pytest.raises(AssertionError):
         snaptolshot.assert_string_equal("def")
+
+
+def test_numpy_float32(snaptolshot):
+    x = [np.float32(1.0), np.float32(2.0)]
+
+    assert snaptolshot == x
+
+
+def test_numpy_complex(snaptolshot):
+    x = {
+        "complex": 1 + 2j,
+        "np.complex64": np.complex64(3 + 4j),
+        "array of complex": np.array([[5 + 6j, 7 + 8j], [-1 - 1j, -2 - 2j]]),
+        "array of complex64": np.array([9 + 10j, 11 + 12j], dtype=np.complex64),
+    }
+
+    assert snaptolshot == x

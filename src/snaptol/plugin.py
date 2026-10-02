@@ -11,6 +11,7 @@ from .io import (
     _show_test_diff,
     _store_test_diff,
     _uncache_test,
+    deserialise_snapshot,
     nodeid_to_key,
     read_snapshot,
     snapshot_filename,
@@ -191,7 +192,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 continue
 
             snapshot_file = Path(entry["snapshot_file"])
-            data = entry["data"]
+            data = deserialise_snapshot(entry["data"])
 
             if snaptol_show_diff:
                 _store_test_diff(
