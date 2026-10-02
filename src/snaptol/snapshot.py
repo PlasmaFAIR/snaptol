@@ -40,7 +40,7 @@ def auto_update(method: F) -> F:
     """
 
     @wraps(method)
-    def wrapper(self: "Snapshot", value: Any, *args, **kwargs):
+    def wrapper(self: "Snapshot", value: Any, *args, **kwargs):  # ruff: ignore[UP037]
         __tracebackhide__ = True  # Hide traceback for py.test
         return self._match_with_method(method, value, *args, **kwargs)
 

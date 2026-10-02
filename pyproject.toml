@@ -69,7 +69,7 @@ tests = [
     "pytest>=8.4.1",
 ]
 lint = [
-    "ruff>=0.12.0",
+    "ruff>=0.16.0",
 ]
 
 [tool.setuptools_scm]
