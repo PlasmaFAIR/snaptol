@@ -43,6 +43,16 @@ class SnaptolSession:
     def register_request(self, snapshot: Snapshot):
         self._snapshots.append(snapshot)
 
+    @staticmethod
+    def _snapshot_file_matches_test(test_file: Path, path: Path) -> bool:
+        """Does `path` match `test_file` or a parameterisation/multiple assert version?"""
+        if test_file == path:
+            return True
+        if test_file.parent != path.parent:
+            return False
+
+        return path.stem.startswith(f"{test_file.stem}[")
+
     def finish(self):
         config = self.pytest_session.config
         last_failed = config.getoption("--last-failed") or config.getoption("--lf")
@@ -57,40 +67,60 @@ class SnaptolSession:
         relevant_snapshot_files = []
         snapshot_dirs = set()
 
-        # We loop through the session items and items that were deselected (e.g by keyword).
-        for item in chain(self._collected_items.values(), self._deselected_items):
-            snapshot_file = snapshot_filename(item, test_dir=Path(item.fspath).parent)
-            snapshot_dirs.add(snapshot_file.parent)
+        # Go over tests we know definitely ran:
+        for snapshot in self._snapshots:
+            snapshot_dirs.add(snapshot.snapshot_dir)
 
-            if not snapshot_file.exists():
-                continue
+            # Mark all the files from assertions that ran
+            for result in snapshot._execution_results.values():
+                relevant_snapshot_files.append(result.filename)
+
+        # We loop through the session items that were deselected (e.g by keyword).
+        for item in self._deselected_items:
+            snapshot_file = snapshot_filename(item, test_dir=Path(item.fspath).parent)
+            snapshot_dir = snapshot_file.parent
+            snapshot_dirs.add(snapshot_dir)
 
             # A test may still exist that used to have a snapshot file but no
             # longer does -> if so, it's not relevant.
             if "snaptolshot" not in getattr(item, "fixturenames", ()):
                 continue
 
-            relevant_snapshot_files.append(snapshot_file)
+            # Mark partial matching files as being relevant
+            for path in snapshot_dir.glob("*.json"):
+                if self._snapshot_file_matches_test(snapshot_file, path):
+                    relevant_snapshot_files.append(path)
 
-        for snapshot in self._snapshots:
-            for result in snapshot._execution_results.values():
-                relevant_snapshot_files.append(result.filename)
+        # Now go through collected items that _don't_ use our fixture:
+        for item in self._collected_items.values():
+            if "snaptolshot" in getattr(item, "fixturenames", ()):
+                continue
+            snapshot_file = snapshot_filename(item, test_dir=Path(item.fspath).parent)
+            snapshot_dirs.add(snapshot_file.parent)
 
         # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
         for snapshot_dir in snapshot_dirs:
+            if not snapshot_dir.exists():
+                continue
+
             for path in snapshot_dir.glob("*.json"):
-                if path not in relevant_snapshot_files:
-                    # Delete the snapshotfile if we are in an update mode.
-                    if snaptol_update or snaptol_update_all:
-                        path.unlink(missing_ok=True)
+                if path in relevant_snapshot_files:
+                    continue
+                # Delete the snapshotfile if we are in an update mode.
+                if snaptol_update or snaptol_update_all:
+                    path.unlink(missing_ok=True)
 
-                        # Stash away the deleted snapshot file paths for later reporting.
-                        self.pytest_session.config.stash.setdefault(
-                            DELETED_STASH_KEY, []
-                        ).append(path)
+                    # Stash away the deleted snapshot file paths for later reporting.
+                    self.pytest_session.config.stash.setdefault(
+                        DELETED_STASH_KEY, []
+                    ).append(path)
 
-                    else:
-                        # Otherwise, stash away the file name to alert the user that it could be deleted.
-                        self.pytest_session.config.stash.setdefault(
-                            DELETABLE_STASH_KEY, []
-                        ).append(path)
+                else:
+                    # Otherwise, stash away the file name to alert the user that it could be deleted.
+                    self.pytest_session.config.stash.setdefault(
+                        DELETABLE_STASH_KEY, []
+                    ).append(path)
+
+            # If there's no more snapshots left, remove the directory
+            if len(list(snapshot_dir.iterdir())) == 0:
+                snapshot_dir.rmdir()
