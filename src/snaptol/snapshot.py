@@ -100,7 +100,7 @@ class Snapshot:
         nodeid = request.node.nodeid
         base_dir = Path(request.fspath).parent
         snapshot_file = snapshot_filename(request.node, test_dir=base_dir)
-        snapshot_dir = snapshot_directory(test_dir=base_dir)
+        snapshot_dir = snapshot_file.parent
         snaptol_update = request.config.getoption(
             "--snaptol-update"
         ) or request.config.getoption("--snaptol-update-all")
@@ -129,10 +129,10 @@ class Snapshot:
         return self._executions
 
     @property
-    def filename(self):
+    def filename(self) -> Path:
         if self.index != 0:
             filestem = self.snapshot_file.stem
-            return self.snapshot_file.with_stem(f"{filestem}-{self.index}")
+            return self.snapshot_file.with_stem(f"{filestem}[{self.index}]")
 
         return self.snapshot_file
 
