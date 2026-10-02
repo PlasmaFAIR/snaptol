@@ -8,7 +8,7 @@ DEFAULT_RTOL = 1e-05
 DEFAULT_ATOL = 1e-08
 
 
-def compare_intelligent(  # noqa: PLR0911, PLR0912
+def compare_intelligent(  # ruff: ignore[PLR0911]
     actual: Any,
     expected: Any,
     rtol: float = DEFAULT_RTOL,

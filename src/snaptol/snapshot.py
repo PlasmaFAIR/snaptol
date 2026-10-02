@@ -1,10 +1,8 @@
-from __future__ import annotations
-
-from dataclasses import dataclass, field, replace
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from functools import wraps
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Self, TypeVar
 
 import numpy.testing as npt
 import pytest
@@ -16,10 +14,10 @@ from .io import (
     _store_test_diff,
     _uncache_test,
     read_snapshot,
-    snapshot_directory,
     snapshot_filename,
     write_snapshot,
 )
+from .session import SnaptolSession
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -57,7 +55,7 @@ class SnaptolResult:
 
 @dataclass
 class Snapshot:
-    session: "SnaptolSession"
+    session: SnaptolSession
     nodeid: str
     snapshot_file: Path
     snapshot_dir: Path
@@ -86,7 +84,7 @@ class Snapshot:
     )
 
     @classmethod
-    def from_request(cls, request: pytest.FixtureRequest) -> Snapshot:
+    def from_request(cls, request: pytest.FixtureRequest) -> Self:
         """
         Create a ``Snapshot`` instance from a pytest request object. Returns
         the instansiated ``Snapshot`` object.
@@ -206,7 +204,7 @@ class Snapshot:
 
         return True
 
-    def __eq__(self, value: Any) -> bool:
+    def __eq__(self, value: object) -> bool:
         __tracebackhide__ = True  # Hide traceback for py.test
         return self._match_with_method(
             compare_intelligent,
@@ -226,7 +224,7 @@ class Snapshot:
         atol: float | None = None,
         equal_nan: bool | None = None,
         name: str | int | None = None,
-    ) -> Snapshot:
+    ) -> Self:
         if rtol is not None:
             self.__with_prop("rtol", rtol)
         if atol is not None:
@@ -237,7 +235,7 @@ class Snapshot:
             self.__with_prop("_index", name)
         return self
 
-    def __getitem__(self, index: str | int) -> Snapshot:
+    def __getitem__(self, index: str | int) -> Self:
         self.__with_prop("_index", index)
         return self
 
