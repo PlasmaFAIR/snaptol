@@ -3,7 +3,7 @@ import difflib
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -406,7 +406,7 @@ def _uncache_test(cache: pytest.Cache, nodeid: str):
     try:
         path = cache._cachedir / "v" / nodeid_to_key(nodeid)
         path.unlink(missing_ok=True)
-    except Exception:
+    except (TypeError, FileNotFoundError):
         _set_cache(cache, None, nodeid_to_key(nodeid))
 
 

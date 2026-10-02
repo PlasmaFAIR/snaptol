@@ -1,15 +1,15 @@
-from itertools import chain
-from typing import Any
-from enum import Enum
 from collections.abc import Iterable
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from dataclasses import field, dataclass
-
+from typing import TYPE_CHECKING
 
 import pytest
 
-from .io import snapshot_filename, DELETED_STASH_KEY, DELETABLE_STASH_KEY
-from .snapshot import Snapshot
+from .io import DELETABLE_STASH_KEY, DELETED_STASH_KEY, snapshot_filename
+
+if TYPE_CHECKING:
+    from .snapshot import Snapshot
 
 
 class ItemStatus(Enum):
@@ -23,7 +23,7 @@ class ItemStatus(Enum):
 class SnaptolSession:
     pytest_session: pytest.Session
 
-    _snapshots: list[Snapshot] = field(default_factory=list)
+    _snapshots: list["Snapshot"] = field(default_factory=list)
     # All the collected test items, keyed by nodeid to preserve collection order
     _collected_items: dict[str, pytest.Item] = field(default_factory=dict)
     _deselected_items: list[pytest.Item] = field(default_factory=list)
@@ -40,7 +40,7 @@ class SnaptolSession:
         for item in self.filter_valid_items(items):
             self._deselected_items.append(item)
 
-    def register_request(self, snapshot: Snapshot):
+    def register_request(self, snapshot: "Snapshot"):
         self._snapshots.append(snapshot)
 
     @staticmethod

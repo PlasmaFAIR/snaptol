@@ -1,8 +1,9 @@
-from typing import Any
-from snaptol.session import SnaptolSession
 from pathlib import Path
+from typing import Any
 
 import pytest
+
+from snaptol.session import SnaptolSession
 
 from .io import (
     CACHE_STASH_KEY,
@@ -243,7 +244,7 @@ def pytest_sessionstart(session: Any) -> None:
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionstart
     """
     session.config._snaptol = SnaptolSession(pytest_session=session)
-    global _snaptol  # noqa: PLW0603
+    global _snaptol  # ruff: ignore[PLW0603]
     _snaptol = session.config._snaptol
 
 
