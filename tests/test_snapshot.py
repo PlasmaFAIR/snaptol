@@ -436,6 +436,31 @@ def test_parameterise(pytester):
     assert (base_test_path / "test_a[True].json").exists()
 
 
+def test_parameterise_multiple_asserts(pytester):
+    # Create a test.
+    pytester.makepyfile(
+        test_a="""
+    import pytest
+    @pytest.mark.parametrize("parameter1, parameter2", [(1, 2), ("a", "b"), (True, False)])
+    def test_a(parameter1, parameter2, snaptolshot):
+        assert snaptolshot == parameter1
+        assert snaptolshot == parameter2
+    """
+    )
+
+    # Assert that the snapshot file is not found.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=3)
+
+    # Assert that the snapshot files are created.
+    base_test_path = pytester.path / "__snapshots__" / "test_a"
+    assert (base_test_path / "test_a[1-2].json").exists()
+    assert (base_test_path / "test_a[a-b].json").exists()
+    assert (base_test_path / "test_a[True-False].json").exists()
+    assert (base_test_path / "test_a[1-2][1].json").exists()
+    assert (base_test_path / "test_a[a-b][1].json").exists()
+    assert (base_test_path / "test_a[True-False][1].json").exists()
+
+
 def test_compare_different_types(pytester):
     # Create a test for strings.
     pytester.makepyfile(
