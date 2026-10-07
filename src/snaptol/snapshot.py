@@ -225,7 +225,6 @@ class Snapshot:
         rtol: float | None = None,
         atol: float | None = None,
         equal_nan: bool | None = None,
-        name: str | int | None = None,
     ) -> Self:
         if rtol is not None:
             self.__with_prop("rtol", rtol)
@@ -233,8 +232,6 @@ class Snapshot:
             self.__with_prop("atol", atol)
         if equal_nan is not None:
             self.__with_prop("equal_nan", equal_nan)
-        if name is not None:
-            self.__with_prop("_index", name)
         return self
 
     def __getitem__(self, index: str | int) -> Self:
