@@ -8,7 +8,7 @@ DEFAULT_RTOL = 1e-05
 DEFAULT_ATOL = 1e-08
 
 
-def compare_intelligent(  # noqa: PLR0911, PLR0912
+def compare_intelligent(  # ruff: ignore[PLR0911]
     actual: Any,
     expected: Any,
     rtol: float = DEFAULT_RTOL,
@@ -52,7 +52,9 @@ def compare_intelligent(  # noqa: PLR0911, PLR0912
     if isinstance(actual, complex | float | int) and isinstance(
         expected, complex | float | int
     ):
-        return np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=equal_nan)
+        return bool(
+            np.isclose(actual, expected, rtol=rtol, atol=atol, equal_nan=equal_nan)
+        )
 
     if isinstance(actual, str) and isinstance(expected, str):
         return actual == expected

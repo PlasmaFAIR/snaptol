@@ -69,7 +69,7 @@ tests = [
     "pytest>=8.4.1",
 ]
 lint = [
-    "ruff>=0.12.0",
+    "ruff>=0.16.0",
 ]
 
 [tool.setuptools_scm]
@@ -99,4 +99,5 @@ extend-select = [
 ignore = [
   "PLR2004", # magic-comparison
   "B9",      # flake8-bugbear opinionated warnings
+  "PLR0912", # too-many-branches
 ]
