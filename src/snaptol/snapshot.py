@@ -132,9 +132,16 @@ class Snapshot:
     def filename(self) -> Path:
         if self.index != 0:
             filestem = self.snapshot_file.stem
-            return self.snapshot_file.with_stem(f"{filestem}[{self.index}]")
+            filename = self.snapshot_file.with_stem(f"{filestem}[{self.index}]")
+        else:
+            filename = self.snapshot_file
 
-        return self.snapshot_file
+        return self.snapshot_dir / filename.name
+
+    def set_snapshot_dir(self, path: Path):
+        """Set a custom location to store snapshots for this individual test
+        """
+        self.snapshot_dir = Path(path)
 
     def _read_snapshot(self) -> None:
         try:

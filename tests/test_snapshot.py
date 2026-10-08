@@ -1,4 +1,5 @@
 import shutil
+from textwrap import dedent
 
 import numpy as np
 import pytest
@@ -493,3 +494,66 @@ def test_compare_different_types(pytester):
 
     # Normal mode -> should now pass as there should no longer be a type incompatibility.
     pytester.runpytest_subprocess().assert_outcomes(passed=2)
+
+
+def test_custom_snapshot_dir(pytester):
+    custom_dir = "__custom_snapshot_dir__"
+    pytester.makepyfile(
+        test_a=f"""
+    def test_a(snaptolshot):
+        snaptolshot.set_snapshot_dir("{custom_dir}")
+        assert snaptolshot == [1, 2, 3]
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    # Check we've created snapshots in our custom location
+    assert (pytester.path / custom_dir).exists()
+
+    # Remove an assert and check we remove the associated file
+    pytester.makepyfile(
+        test_a=f"""
+    def test_a(snaptolshot):
+        snaptolshot.set_snapshot_dir("{custom_dir}")
+        assert snaptolshot == [1, 2, 3]
+    """
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+
+    assert (pytester.path / custom_dir / "test_a.py__test_a.json").exists()
+    assert not (pytester.path / custom_dir / "test_a.py__test_a[1].json").exists()
+
+
+def test_custom_snapshot_dir_absolute_path(pytester):
+    test_dir = pytester.path / "tests_dir"
+    test_dir.mkdir()
+
+    custom_dir = pytester.path / "elsewhere" / "__custom_snapshot_dir__"
+    (test_dir / "test_a.py").write_text(
+        dedent(f"""
+    def test_a(snaptolshot):
+        snaptolshot.set_snapshot_dir("{custom_dir}")
+        assert snaptolshot == [1, 2, 3]
+        assert snaptolshot == [4, 5, 6]
+    """)
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    # Check we've created snapshots in our custom location
+    assert custom_dir.exists()
+
+    # Remove an assert and check we remove the associated file
+    (test_dir / "test_a.py").write_text(
+        dedent(f"""
+    def test_a(snaptolshot):
+        snaptolshot.set_snapshot_dir("{custom_dir}")
+        assert snaptolshot == [1, 2, 3]
+    """)
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+
+    assert (custom_dir / "test_a.py__test_a.json").exists()
+    assert not (custom_dir / "test_a.py__test_a[1].json").exists()
