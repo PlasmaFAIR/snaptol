@@ -99,7 +99,7 @@ class Snapshot:
 
         nodeid = request.node.nodeid
         base_dir = Path(request.fspath).parent
-        snapshot_file = snapshot_filename(request.node, test_dir=base_dir)
+        snapshot_file = snapshot_filename(request.node.nodeid, test_dir=base_dir)
         snapshot_dir = snapshot_file.parent
         snaptol_update = request.config.getoption(
             "--snaptol-update"
