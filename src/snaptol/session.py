@@ -61,9 +61,7 @@ class SnaptolSession:
             return
 
         snaptol_update = config.getoption("--snaptol-update")
-        snaptol_update_all = config.getoption(
-            "--snaptol-update-all"
-        )
+        snaptol_update_all = config.getoption("--snaptol-update-all")
 
         # The items (tests) that are in the session are relevant and thus their snapshot files musn't be deleted.
         relevant_snapshot_files = []
@@ -79,7 +77,9 @@ class SnaptolSession:
 
         # We loop through the session items that were deselected (e.g by keyword).
         for item in self._deselected_items:
-            snapshot_file = snapshot_filename(item.nodeid, test_dir=Path(item.fspath).parent)
+            snapshot_file = snapshot_filename(
+                item.nodeid, test_dir=Path(item.fspath).parent
+            )
             snapshot_dir = snapshot_file.parent
             snapshot_dirs.add(snapshot_dir)
 
@@ -97,7 +97,9 @@ class SnaptolSession:
         for item in self._collected_items.values():
             if "snaptolshot" in getattr(item, "fixturenames", ()):
                 continue
-            snapshot_file = snapshot_filename(item.nodeid, test_dir=Path(item.fspath).parent)
+            snapshot_file = snapshot_filename(
+                item.nodeid, test_dir=Path(item.fspath).parent
+            )
             snapshot_dirs.add(snapshot_file.parent)
 
         # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
