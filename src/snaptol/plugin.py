@@ -93,6 +93,13 @@ def pytest_addoption(parser: pytest.Parser):
         help="Show diff in update mode when snapshot data does not match data on file",
     )
 
+    parser.addoption(
+        "--snaptol-dirname",
+        dest="snaptol_dirname",
+        default="__snapshots__",
+        help="Name of directory for storing snapshots",
+    )
+
 
 def pytest_configure(config: pytest.Config):
     """
@@ -243,7 +250,11 @@ def pytest_sessionstart(session: Any) -> None:
     Initialize snapshot session before tests are collected and ran.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionstart
     """
-    session.config._snaptol = SnaptolSession(pytest_session=session)
+
+    session.config._snaptol = SnaptolSession(
+        pytest_session=session,
+        default_snapshot_dirname=session.config.option.snaptol_dirname,
+    )
     global _snaptol  # ruff: ignore[PLW0603]
     _snaptol = session.config._snaptol
 

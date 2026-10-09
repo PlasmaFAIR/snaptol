@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from .io import DELETABLE_STASH_KEY, DELETED_STASH_KEY, snapshot_filename, snapshot_directory
+from .io import DELETABLE_STASH_KEY, DELETED_STASH_KEY
 
 if TYPE_CHECKING:
     from .snapshot import Snapshot
@@ -22,6 +22,7 @@ class ItemStatus(Enum):
 @dataclass
 class SnaptolSession:
     pytest_session: pytest.Session
+    default_snapshot_dirname: Path | str = "__snapshots__"
 
     _snapshots: list["Snapshot"] = field(default_factory=list)
     # All the collected test items, keyed by nodeid to preserve collection order
@@ -42,6 +43,17 @@ class SnaptolSession:
 
     def register_request(self, snapshot: "Snapshot"):
         self._snapshots.append(snapshot)
+
+    def snapshot_directory(self, base_dir: Path) -> Path:
+        """Directory where snapshot files will be stored, relative to `base_dir`"""
+        return base_dir / self.default_snapshot_dirname
+
+    def snapshot_filename(self, base_dir: Path, nodeid: str) -> Path:
+        """Full path to a snapshot file for a given test nodeid"""
+        return (
+            self.snapshot_directory(base_dir)
+            / f"{Path(nodeid.replace(':', '_')).name}.json"
+        )
 
     @staticmethod
     def _snapshot_file_matches_test(test_file: Path, path: Path) -> bool:
@@ -77,8 +89,8 @@ class SnaptolSession:
 
         # We loop through the session items that were deselected (e.g by keyword).
         for item in self._deselected_items:
-            snapshot_file = snapshot_filename(item.nodeid, test_dir=item.path.parent)
-            snapshot_dir = snapshot_directory(item.path.parent)
+            snapshot_file = self.snapshot_filename(item.path.parent, item.nodeid)
+            snapshot_dir = self.snapshot_directory(item.path.parent)
             snapshot_dirs.add(snapshot_dir)
 
             # A test may still exist that used to have a snapshot file but no
@@ -95,7 +107,7 @@ class SnaptolSession:
         for item in self._collected_items.values():
             if "snaptolshot" in getattr(item, "fixturenames", ()):
                 continue
-            snapshot_dirs.add(snapshot_directory(item.path.parent))
+            snapshot_dirs.add(self.snapshot_directory(item.path.parent))
 
         # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
         for snapshot_dir in snapshot_dirs:
