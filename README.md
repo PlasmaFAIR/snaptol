@@ -160,6 +160,18 @@ def test_something(snaptolshot):
 For both of these methods, relative paths are relative to the test file. You can
 also use absolute paths.
 
+## Command line options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--snaptol-update` |  Update snaptol snapshot files of previously failed tests |`False` |
+| `--snaptol-update-all` |  Update all snaptol snapshot files |`False` |
+| `--snaptol-use-cache` |  In update mode, use cached snaptol snapshot data if available |`False` |
+| `--snaptol-show-cache` |  Show cached snaptol snapshot data |`False` |
+| `--snaptol-clear-cache` |  Clear cached snaptol snapshot data |`False` |
+| `--snaptol-show-diff` |  Show diff in update mode when snapshot data does not match data on file |`False` |
+| `--snaptol-dirname` |  Name of directory for storing snapshots |`"__snapshots__"` |
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first
