@@ -534,7 +534,7 @@ def test_custom_snapshot_dir_absolute_path(pytester):
     (test_dir / "test_a.py").write_text(
         dedent(f"""
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir("{custom_dir}")
+        snaptolshot.set_snapshot_dir(r"{custom_dir}")
         assert snaptolshot == [1, 2, 3]
         assert snaptolshot == [4, 5, 6]
     """)
@@ -548,7 +548,7 @@ def test_custom_snapshot_dir_absolute_path(pytester):
     (test_dir / "test_a.py").write_text(
         dedent(f"""
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir("{custom_dir}")
+        snaptolshot.set_snapshot_dir(r"{custom_dir}")
         assert snaptolshot == [1, 2, 3]
     """)
     )
