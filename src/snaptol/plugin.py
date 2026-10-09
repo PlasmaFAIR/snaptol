@@ -51,49 +51,50 @@ def pytest_addoption(parser: pytest.Parser):
         The pytest command line parser to which the option will be added.
     """
 
-    parser.addoption(
+    group = parser.getgroup("snaptol")
+    group.addoption(
         "--snaptol-update",
         action="store_true",
         default=False,
         help="Update snaptol snapshot files of previously failed tests",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-update-all",
         action="store_true",
         default=False,
         help="Update all snaptol snapshot files",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-use-cache",
         action="store_true",
         default=False,
         help="In update mode, use cached snaptol snapshot data if available",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-show-cache",
         action="store_true",
         default=False,
         help="Show cached snaptol snapshot data",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-clear-cache",
         action="store_true",
         default=False,
         help="Clear cached snaptol snapshot data",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-show-diff",
         action="store_true",
         default=False,
         help="Show diff in update mode when snapshot data does not match data on file",
     )
 
-    parser.addoption(
+    group.addoption(
         "--snaptol-dirname",
         dest="snaptol_dirname",
         default="__snapshots__",
