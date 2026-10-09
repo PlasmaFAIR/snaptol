@@ -232,35 +232,6 @@ class NumpyDecoder(json.JSONDecoder):
         return dct
 
 
-def snapshot_filename(nodeid: str, test_dir: Path) -> Path:
-    """
-    Generates a snapshot filename based on the test nodeid. Returns a Path object
-    with a '.json' extension.
-
-    Parameters
-    ----------
-    nodeid
-        The nodeid of the test.
-    test_dir
-        The directory where the test lives.
-    """
-
-    return snapshot_directory(test_dir) / f"{Path(nodeid.replace(':', '_')).name}.json"
-
-
-def snapshot_directory(test_dir: Path) -> Path:
-    """
-    Generates the directory where snapshot files will be stored. Returns a Path object.
-
-    Parameters
-    ----------
-    test_dir
-        The directory where the test lives.
-    """
-
-    return test_dir / "__snapshots__"
-
-
 def json_dump(*args, **kwargs) -> str:
     """
     Serialises Python objects to a JSON formatted string with indentation.

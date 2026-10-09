@@ -16,7 +16,6 @@ from .io import (
     _store_test_diff,
     _uncache_test,
     read_snapshot,
-    snapshot_filename,
     write_snapshot,
 )
 from .session import SnaptolSession
@@ -97,9 +96,11 @@ class Snapshot:
             The pytest request fixture containing test information.
         """
 
+        session = request.session.config._snaptol  # ty: ignore[unresolved-attribute]
+
         nodeid = request.node.nodeid
-        base_dir = Path(request.fspath).parent
-        snapshot_file = snapshot_filename(request.node.nodeid, test_dir=base_dir)
+        base_dir = request.path.parent
+        snapshot_file = session.snapshot_filename(base_dir, nodeid)
         snapshot_dir = snapshot_file.parent
         snaptol_update = request.config.getoption(
             "--snaptol-update"
@@ -109,7 +110,7 @@ class Snapshot:
         config = request.config
 
         return cls(
-            session=request.session.config._snaptol,  # ty: ignore[unresolved-attribute]
+            session=session,
             nodeid=nodeid,
             snapshot_file=snapshot_file,
             snapshot_dir=snapshot_dir,
@@ -132,9 +133,15 @@ class Snapshot:
     def filename(self) -> Path:
         if self.index != 0:
             filestem = self.snapshot_file.stem
-            return self.snapshot_file.with_stem(f"{filestem}[{self.index}]")
+            filename = self.snapshot_file.with_stem(f"{filestem}[{self.index}]")
+        else:
+            filename = self.snapshot_file
 
-        return self.snapshot_file
+        return self.snapshot_dir / filename.name
+
+    def set_snapshot_dir(self, path: Path):
+        """Set a custom location to store snapshots for this individual test"""
+        self.snapshot_dir = Path(path)
 
     def _read_snapshot(self) -> None:
         try:

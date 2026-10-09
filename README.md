@@ -79,7 +79,6 @@ def test_somethings(snaptolshot):
     assert snaptolshot["second"].assert_allclose(result2, rtol=1e-2, atol=1e-3)
 ```
 
-
 ### Updating snapshots
 
 #### Initial run (or intentional changes)
@@ -130,6 +129,48 @@ pytest --snaptol-update --snaptol-use-cache
 ```
 When enabled, cached data is used in place of re-running the test.
 
+### Snapshot location
+
+By default, snapshot files are stored alongside the corresponding tests in a
+directory called `__snapshots__`. You can customise the name of this directory
+through the `--snaptol-dirname` option:
+
+```console
+$ pytest --snaptol-dirname=testdata
+```
+
+or in a `pyproject.toml`/`pytest.toml` file:
+
+```toml
+[tool.pytest]
+addopts = ["--snaptol-dirname=testdata"]
+````
+
+You can also customise the snapshot location for individual tests via the test
+fixture:
+
+```python
+def test_something(snaptolshot):
+    snaptolshot.set_snaptolshot_dir("testdata")
+
+    result = compute_something()
+    assert snaptolshot == result
+```
+
+For both of these methods, relative paths are relative to the test file. You can
+also use absolute paths.
+
+## Command line options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--snaptol-update` |  Update snaptol snapshot files of previously failed tests |`False` |
+| `--snaptol-update-all` |  Update all snaptol snapshot files |`False` |
+| `--snaptol-use-cache` |  In update mode, use cached snaptol snapshot data if available |`False` |
+| `--snaptol-show-cache` |  Show cached snaptol snapshot data |`False` |
+| `--snaptol-clear-cache` |  Clear cached snaptol snapshot data |`False` |
+| `--snaptol-show-diff` |  Show diff in update mode when snapshot data does not match data on file |`False` |
+| `--snaptol-dirname` |  Name of directory for storing snapshots |`"__snapshots__"` |
 
 ## Contributing
 
