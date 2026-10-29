@@ -146,19 +146,31 @@ or in a `pyproject.toml`/`pytest.toml` file:
 addopts = ["--snaptol-dirname=testdata"]
 ````
 
-You can also customise the snapshot location for individual tests via the test
-fixture:
+You can also customise the snapshot location for individual tests with the
+`snaptol_dir` marker:
 
 ```python
-def test_something(snaptolshot):
-    snaptolshot.set_snaptolshot_dir("testdata")
+import pytest
 
+@pytest.mark.snaptol_dir("testdata")
+def test_something(snaptolshot):
     result = compute_something()
     assert snaptolshot == result
 ```
 
+Like any pytest marker, this can also be applied to a whole class, or to a whole
+module with `pytestmark = pytest.mark.snaptol_dir("testdata")`.
+
 For both of these methods, relative paths are relative to the test file. You can
 also use absolute paths.
+
+> [!NOTE]
+> `snaptol` finds unused snapshot files by looking in the snapshot directories of
+> the collected tests. If a test stops using the `snaptolshot` fixture, keep its
+> `snaptol_dir` marker until you have run in update mode, so that its old
+> snapshot files are found and removed. If you remove the fixture and the
+> marker together, snaptol no longer knows about that custom directory, and
+> any snapshot files left there must be deleted by hand.
 
 ## Command line options
 
