@@ -8,6 +8,8 @@ import pytest
 
 from .io import DELETABLE_STASH_KEY, DELETED_STASH_KEY
 
+SNAPTOL_DIR_MARKER = "snaptol_dir"
+
 if TYPE_CHECKING:
     from .snapshot import Snapshot
 
@@ -25,9 +27,8 @@ class SnaptolSession:
     default_snapshot_dirname: Path | str = "__snapshots__"
 
     _snapshots: list["Snapshot"] = field(default_factory=list)
-    # All the collected test items, keyed by nodeid to preserve collection order
+    # All the collected test items (including deselected ones), keyed by nodeid to preserve collection order
     _collected_items: dict[str, pytest.Item] = field(default_factory=dict)
-    _deselected_items: list[pytest.Item] = field(default_factory=list)
 
     @staticmethod
     def filter_valid_items(items: list["pytest.Item"]) -> Iterable["pytest.Item"]:
@@ -38,21 +39,34 @@ class SnaptolSession:
             self._collected_items[item.nodeid] = item
 
     def add_deselected(self, items: list[pytest.Item]) -> None:
-        for item in self.filter_valid_items(items):
-            self._deselected_items.append(item)
+        # Usually already collected, unless another plugin deselected them
+        # before our `pytest_collection_modifyitems` ran
+        self.collect_items(items)
 
     def register_request(self, snapshot: "Snapshot"):
         self._snapshots.append(snapshot)
 
-    def snapshot_directory(self, base_dir: Path) -> Path:
-        """Directory where snapshot files will be stored, relative to `base_dir`"""
-        return base_dir / self.default_snapshot_dirname
+    def snapshot_directory(self, item: pytest.Item) -> Path:
+        """
+        Directory where snapshot files will be stored for `item`. Uses the
+        ``snaptol_dir`` marker if present, otherwise the default dirname.
+        Relative paths are relative to the test file.
+        """
+        dirname = self.default_snapshot_dirname
+        if marker := item.get_closest_marker(SNAPTOL_DIR_MARKER):
+            if len(marker.args) != 1 or marker.kwargs:
+                raise pytest.UsageError(
+                    f"{item.nodeid}: '{SNAPTOL_DIR_MARKER}' marker takes exactly one path argument"
+                )
+            dirname = marker.args[0]
+        # If dirname is an absolute path, then item.path.parent will be thrown away.
+        return item.path.parent / dirname
 
-    def snapshot_filename(self, base_dir: Path, nodeid: str) -> Path:
-        """Full path to a snapshot file for a given test nodeid"""
+    def snapshot_filename(self, item: pytest.Item) -> Path:
+        """Full path to a snapshot file for a given test item"""
         return (
-            self.snapshot_directory(base_dir)
-            / f"{Path(nodeid.replace(':', '_')).name}.json"
+            self.snapshot_directory(item)
+            / f"{Path(item.nodeid.replace(':', '_')).name}.json"
         )
 
     @staticmethod
@@ -80,34 +94,37 @@ class SnaptolSession:
         snapshot_dirs = set()
 
         # Go over tests we know definitely ran:
+        ran_nodeids = set()
         for snapshot in self._snapshots:
             snapshot_dirs.add(snapshot.snapshot_dir)
+
+            # A test that never reached an assertion (e.g. `pytest.skip()` in
+            # the body) tells us nothing, so treat it as not having run
+            if snapshot._executions > 0:
+                ran_nodeids.add(snapshot.nodeid)
 
             # Mark all the files from assertions that ran
             for result in snapshot._execution_results.values():
                 relevant_snapshot_files.append(result.filename)
 
-        # We loop through the session items that were deselected (e.g by keyword).
-        for item in self._deselected_items:
-            snapshot_file = self.snapshot_filename(item.path.parent, item.nodeid)
-            snapshot_dir = self.snapshot_directory(item.path.parent)
+        # Now go through all collected items, including those that were
+        # deselected (e.g. by keyword) or skipped.
+        for item in self._collected_items.values():
+            snapshot_dir = self.snapshot_directory(item)
             snapshot_dirs.add(snapshot_dir)
 
             # A test may still exist that used to have a snapshot file but no
             # longer does -> if so, it's not relevant.
             if "snaptolshot" not in getattr(item, "fixturenames", ()):
                 continue
+            if item.nodeid in ran_nodeids:
+                continue
 
-            # Mark partial matching files as being relevant
+            # Didn't run, so mark partial matching files as being relevant
+            snapshot_file = self.snapshot_filename(item)
             for path in snapshot_dir.glob("*.json"):
                 if self._snapshot_file_matches_test(snapshot_file, path):
                     relevant_snapshot_files.append(path)
-
-        # Now go through collected items that _don't_ use our fixture:
-        for item in self._collected_items.values():
-            if "snaptolshot" in getattr(item, "fixturenames", ()):
-                continue
-            snapshot_dirs.add(self.snapshot_directory(item.path.parent))
 
         # We now have all the relevant snapshot files -> delete snapshots that are not included in the list.
         for snapshot_dir in snapshot_dirs:

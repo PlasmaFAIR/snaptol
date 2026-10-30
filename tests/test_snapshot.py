@@ -266,6 +266,154 @@ def test_skip(pytester):
     assert (pytester.path / "__snapshots__" / "test_a.py__test_a.json").exists()
 
 
+@pytest.mark.parametrize(
+    "skip_marker",
+    ["@pytest.mark.skip", "@pytest.mark.skipif(True, reason='skipped')"],
+)
+@pytest.mark.parametrize("snapshot_dir", ["__snapshots__", "__custom__"])
+def test_skip_alongside_other_test(pytester, skip_marker, snapshot_dir):
+    # When another test runs in the same directory, the snapshot files in that
+    # directory get checked, so the skipped test's files must be recognised
+    # Also checks the marker applies at module level
+    dir_marker = (
+        ""
+        if snapshot_dir == "__snapshots__"
+        else f"pytest.mark.snaptol_dir('{snapshot_dir}')"
+    )
+    test_ab = """
+    import pytest
+    pytestmark = [{dir_marker}]
+    {skip_marker}
+    def test_a(snaptolshot):
+        assert snaptolshot[0] == [1, 2, 3]
+        assert snaptolshot[1] == [4, 5, 6]
+    def test_b(snaptolshot):
+        assert snaptolshot == [7, 8, 9]
+    """
+    pytester.makepyfile(test_ab=test_ab.format(dir_marker=dir_marker, skip_marker=""))
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert (pytester.path / snapshot_dir / "test_ab.py__test_a.json").exists()
+
+    pytester.makepyfile(
+        test_ab=test_ab.format(dir_marker=dir_marker, skip_marker=skip_marker)
+    )
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1, skipped=1)
+    result.stdout.no_fnmatch_line("*could be deleted*")
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(
+        passed=1, skipped=1
+    )
+    assert (pytester.path / snapshot_dir / "test_ab.py__test_a.json").exists()
+    assert (pytester.path / snapshot_dir / "test_ab.py__test_a[1].json").exists()
+    assert (pytester.path / snapshot_dir / "test_ab.py__test_b.json").exists()
+
+
+def test_skip_in_test_body(pytester):
+    pytester.makepyfile(
+        test_ab="""
+    def test_a(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
+    def test_b(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+
+    pytester.makepyfile(
+        test_ab="""
+    import pytest
+    def test_a(snaptolshot):
+        pytest.skip()
+        assert snaptolshot == [1, 2, 3]
+    def test_b(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(
+        passed=1, skipped=1
+    )
+    assert (pytester.path / "__snapshots__" / "test_ab.py__test_a.json").exists()
+    assert (pytester.path / "__snapshots__" / "test_ab.py__test_b.json").exists()
+
+
+def test_deselected_custom_snapshot_dir(pytester):
+    custom_dir = "__custom_snapshot_dir__"
+    pytester.makepyfile(
+        test_ab=f"""
+    import pytest
+    @pytest.mark.snaptol_dir("{custom_dir}")
+    def test_a(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
+    @pytest.mark.snaptol_dir("{custom_dir}")
+    def test_b(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+
+    pytester.runpytest_subprocess(
+        "--snaptol-update-all", "-k", "test_b"
+    ).assert_outcomes(passed=1, deselected=1)
+    assert (pytester.path / custom_dir / "test_ab.py__test_a.json").exists()
+    assert (pytester.path / custom_dir / "test_ab.py__test_b.json").exists()
+
+
+def test_remove_fixture_custom_snapshot_dir(pytester):
+    # Each test has its own custom directory, so test_a's directory is only
+    # known about via its marker
+    custom_dir_a = pytester.path / "__custom_a__"
+    custom_dir_b = pytester.path / "__custom_b__"
+    pytester.makepyfile(
+        test_ab="""
+    import pytest
+    @pytest.mark.snaptol_dir("__custom_a__")
+    def test_a(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
+    @pytest.mark.snaptol_dir("__custom_b__")
+    def test_b(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert (custom_dir_a / "test_ab.py__test_a.json").exists()
+    assert (custom_dir_b / "test_ab.py__test_b.json").exists()
+
+    # Check the snapshots pass.
+    pytester.runpytest_subprocess().assert_outcomes(passed=2)
+
+    # Remove the fixture from test_a, but keep its marker.
+    pytester.makepyfile(
+        test_ab="""
+    import pytest
+    @pytest.mark.snaptol_dir("__custom_a__")
+    def test_a():
+        assert True
+    @pytest.mark.snaptol_dir("__custom_b__")
+    def test_b(snaptolshot):
+        assert snaptolshot == [4, 5, 6]
+    """
+    )
+    shutil.rmtree(pytester.path / "__pycache__", ignore_errors=True)
+
+    # Normal mode -> only suggest deleting test_a's snapshot.
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=2)
+    result.stdout.fnmatch_lines(["*could be deleted*", "*test_ab.py__test_a.json"])
+    assert (custom_dir_a / "test_ab.py__test_a.json").exists()
+
+    # Update mode -> test_a's snapshot (and now empty directory) is removed.
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=2)
+    assert not (custom_dir_a / "test_ab.py__test_a.json").exists()
+    assert not custom_dir_a.exists()
+    assert (custom_dir_b / "test_ab.py__test_b.json").exists()
+
+
 def test_use_cache(pytester):
     pytester.makepyfile(
         test_a="""
@@ -500,8 +648,9 @@ def test_custom_snapshot_dir(pytester):
     custom_dir = "__custom_snapshot_dir__"
     pytester.makepyfile(
         test_a=f"""
+    import pytest
+    @pytest.mark.snaptol_dir("{custom_dir}")
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir("{custom_dir}")
         assert snaptolshot == [1, 2, 3]
         assert snaptolshot == [4, 5, 6]
     """
@@ -514,8 +663,9 @@ def test_custom_snapshot_dir(pytester):
     # Remove an assert and check we remove the associated file
     pytester.makepyfile(
         test_a=f"""
+    import pytest
+    @pytest.mark.snaptol_dir("{custom_dir}")
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir("{custom_dir}")
         assert snaptolshot == [1, 2, 3]
     """
     )
@@ -533,8 +683,9 @@ def test_custom_snapshot_dir_absolute_path(pytester):
     custom_dir = pytester.path / "elsewhere" / "__custom_snapshot_dir__"
     (test_dir / "test_a.py").write_text(
         dedent(f"""
+    import pytest
+    @pytest.mark.snaptol_dir(r"{custom_dir}")
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir(r"{custom_dir}")
         assert snaptolshot == [1, 2, 3]
         assert snaptolshot == [4, 5, 6]
     """)
@@ -547,8 +698,9 @@ def test_custom_snapshot_dir_absolute_path(pytester):
     # Remove an assert and check we remove the associated file
     (test_dir / "test_a.py").write_text(
         dedent(f"""
+    import pytest
+    @pytest.mark.snaptol_dir(r"{custom_dir}")
     def test_a(snaptolshot):
-        snaptolshot.set_snapshot_dir(r"{custom_dir}")
         assert snaptolshot == [1, 2, 3]
     """)
     )
@@ -557,6 +709,23 @@ def test_custom_snapshot_dir_absolute_path(pytester):
 
     assert (custom_dir / "test_a.py__test_a.json").exists()
     assert not (custom_dir / "test_a.py__test_a[1].json").exists()
+
+
+def test_custom_snapshot_dir_relative_to_test_file(pytester):
+    test_dir = pytester.path / "tests_dir"
+    test_dir.mkdir()
+    (test_dir / "test_a.py").write_text(
+        dedent("""
+    import pytest
+    @pytest.mark.snaptol_dir("__custom_snapshot_dir__")
+    def test_a(snaptolshot):
+        assert snaptolshot == [1, 2, 3]
+    """)
+    )
+
+    pytester.runpytest_subprocess("--snaptol-update-all").assert_outcomes(passed=1)
+    assert (test_dir / "__custom_snapshot_dir__" / "test_a.py__test_a.json").exists()
+    assert not (pytester.path / "__custom_snapshot_dir__").exists()
 
 
 def test_custom_default_snapshot_dir(pytester):

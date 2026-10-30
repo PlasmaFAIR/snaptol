@@ -99,8 +99,7 @@ class Snapshot:
         session = request.session.config._snaptol  # ty: ignore[unresolved-attribute]
 
         nodeid = request.node.nodeid
-        base_dir = request.path.parent
-        snapshot_file = session.snapshot_filename(base_dir, nodeid)
+        snapshot_file = session.snapshot_filename(request.node)
         snapshot_dir = snapshot_file.parent
         snaptol_update = request.config.getoption(
             "--snaptol-update"
@@ -138,10 +137,6 @@ class Snapshot:
             filename = self.snapshot_file
 
         return self.snapshot_dir / filename.name
-
-    def set_snapshot_dir(self, path: Path):
-        """Set a custom location to store snapshots for this individual test"""
-        self.snapshot_dir = Path(path)
 
     def _read_snapshot(self) -> None:
         try:

@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from snaptol.session import SnaptolSession
+from snaptol.session import SNAPTOL_DIR_MARKER, SnaptolSession
 
 from .io import (
     CACHE_STASH_KEY,
@@ -118,6 +118,12 @@ def pytest_configure(config: pytest.Config):
     ValueError
         If incompatible command line options are used together.
     """
+
+    config.addinivalue_line(
+        "markers",
+        f"{SNAPTOL_DIR_MARKER}(path): store snaptol snapshots for this test in "
+        "`path`, relative to the test file (absolute paths are also allowed)",
+    )
 
     snaptol_update = config.getoption("--snaptol-update")
     snaptol_update_all = config.getoption("--snaptol-update-all")
